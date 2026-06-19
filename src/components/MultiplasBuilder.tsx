@@ -5,6 +5,7 @@ import { Game } from '@/lib/types'
 import { getBookmakerUrl, ALLOWED_BOOKMAKERS } from '@/lib/bookmakers'
 import { formatTime, formatDateLabel, formatDateHeader } from '@/lib/utils'
 import { COMP_INFO } from '@/lib/competitions'
+import BetSlip, { BetSlipItem } from './BetSlip'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -305,8 +306,59 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
   const selectedCount = allSels.length
   const totalGames = processedGames.size
 
+  const betSlipItems = useMemo((): BetSlipItem[] => {
+    const bestBmKey = ranking[0]?.key ?? null
+
+    return allSels
+      .map(({ gameId, market, outcome }) => {
+        const game = processedGames.get(gameId)
+        if (!game) return null
+
+        // Individual odd: prefer the best combined bookmaker, fallback to best available
+        let odd: number | null = null
+        if (bestBmKey) {
+          const bm = game.bookmakers.find((b) => b.key === bestBmKey)
+          if (bm) odd = getOddFromBm(bm, market, outcome)
+        }
+        if (odd === null) {
+          for (const bm of game.bookmakers) {
+            const o = getOddFromBm(bm, market, outcome)
+            if (o !== null && (odd === null || o > odd)) odd = o
+          }
+        }
+
+        const point = game.bookmakers.find((bm) => bm.totals)?.totals?.point ?? 2.5
+        let selectionLabel = outcome
+        if (market === 'h2h') {
+          selectionLabel =
+            outcome === 'home'
+              ? `Vitória ${short(game.home_team)}`
+              : outcome === 'draw'
+              ? 'Empate'
+              : `Vitória ${short(game.away_team)}`
+        } else if (market === 'totals') {
+          selectionLabel = outcome === 'Over' ? `+${point} Gols` : `-${point} Gols`
+        } else if (market === 'btts') {
+          selectionLabel = outcome === 'Yes' ? 'BTTS Sim' : 'BTTS Não'
+        }
+
+        return {
+          key: `${gameId}-${market}-${outcome}`,
+          gameLabel: `${short(game.home_team)} × ${short(game.away_team)}`,
+          selectionLabel,
+          odd,
+        }
+      })
+      .filter((item): item is BetSlipItem => item !== null)
+  }, [allSels, processedGames, ranking])
+
+  function clearAll() {
+    setSelections({})
+  }
+
   return (
-    <div className="space-y-8">
+    <>
+    <div className={`space-y-8 transition-all duration-300 ${selectedCount > 0 ? 'lg:pr-80' : ''}`}>
       {/* Step 1 */}
       <section>
         <div className="flex items-center gap-3 mb-4">
@@ -432,7 +484,7 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
                 {ranking.length !== 1 ? 's' : ''} com cobertura completa
               </span>
               <button
-                onClick={() => setSelections({})}
+                onClick={clearAll}
                 className="text-xs text-gray-400 hover:text-red-500 transition-colors font-medium"
               >
                 Limpar seleção
@@ -442,5 +494,14 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
         )}
       </section>
     </div>
+
+    <BetSlip
+      items={betSlipItems}
+      totalOdd={ranking[0]?.totalOdd ?? null}
+      bestTitle={ranking[0]?.title ?? null}
+      bestUrl={ranking[0]?.url ?? null}
+      onClear={clearAll}
+    />
+    </>
   )
 }
