@@ -17,36 +17,33 @@ function ChartBarIcon() {
 
 export default function Header() {
   return (
-    <header className="bg-gradient-to-r from-green-800 to-green-600 shadow-lg sticky top-0 z-10">
-      <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-        {/* Logo */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow">
-            <ChartBarIcon />
+    <header className="sticky top-0 z-10 shadow-md">
+      {/* Green main bar */}
+      <div className="bg-gradient-to-r from-green-800 to-green-600">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow">
+              <ChartBarIcon />
+            </div>
+            <div>
+              <h1 className="text-white text-2xl font-extrabold tracking-tight leading-none">
+                Zodd&apos;s BR
+              </h1>
+              <p className="text-green-200 text-xs font-medium mt-0.5">Comparador de Odds</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-white text-2xl font-extrabold tracking-tight leading-none">
-              Zodd&apos;s BR
-            </h1>
-            <p className="text-green-200 text-xs font-medium mt-0.5">Comparador de Odds</p>
-          </div>
-        </div>
 
-        {/* Competition selector */}
-        <Suspense fallback={<div className="h-8 w-44 rounded-lg bg-green-900/40 animate-pulse" />}>
-          <CompSelector />
-        </Suspense>
-      </div>
-
-      <div className="border-t border-green-700/50">
-        <div className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
-          <Suspense fallback={<div className="h-7 w-36 rounded-md bg-green-700/40" />}>
+          <Suspense fallback={<div className="h-8 w-36 rounded-md bg-green-700/40" />}>
             <NavTabs />
           </Suspense>
-          <p className="text-green-200 text-xs hidden sm:block">
-            Odds em <span className="font-semibold text-green-100">verde ↑</span> = melhores disponíveis
-          </p>
         </div>
+      </div>
+
+      {/* Secondary competition nav */}
+      <div className="bg-white border-b border-gray-100">
+        <Suspense fallback={<div className="h-11" />}>
+          <CompSelector />
+        </Suspense>
       </div>
     </header>
   )

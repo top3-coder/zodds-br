@@ -8,20 +8,14 @@ export default async function MultiplasPage({
   searchParams?: Record<string, string | string[] | undefined>
 }) {
   const comp = typeof searchParams?.comp === 'string' ? searchParams.comp : 'serie-b'
-
-  const [serieB, copa] = await Promise.all([
-    getOdds('soccer_brazil_serie_b'),
-    getOdds('soccer_fifa_world_cup'),
-  ])
-
-  // Selected competition appears first in the list
-  const games = comp === 'copa' ? [...copa, ...serieB] : [...serieB, ...copa]
+  const sportKey = comp === 'copa' ? 'soccer_fifa_world_cup' : 'soccer_brazil_serie_b'
+  const games = await getOdds(sportKey)
 
   return (
     <>
       <Header />
       <main className="max-w-5xl mx-auto px-4 py-8">
-        <MultiplasBuilder games={games} />
+        <MultiplasBuilder key={sportKey} games={games} />
 
         <footer className="mt-16 pb-8 border-t border-gray-200 pt-6 text-center space-y-1.5">
           <p className="text-xs text-gray-500">

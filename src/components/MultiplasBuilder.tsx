@@ -37,14 +37,6 @@ interface DateGroup {
   games: ProcessedGame[]
 }
 
-interface CompGroup {
-  sportKey: string
-  label: string
-  emoji: string
-  gradient: string
-  dates: DateGroup[]
-}
-
 const MEDALS = ['🥇', '🥈', '🥉']
 const SP_TZ = 'America/Sao_Paulo'
 
@@ -82,50 +74,21 @@ function buildProcessedGames(games: Game[]): Map<string, ProcessedGame> {
   return map
 }
 
-// Groups games by competition (maintaining input order) then by date within each competition
-function buildCompGroups(processedGames: Map<string, ProcessedGame>): CompGroup[] {
-  const compMap = new Map<
-    string,
-    { label: string; emoji: string; gradient: string; dateMap: Map<string, ProcessedGame[]> }
-  >()
-
+function buildDateGroups(processedGames: Map<string, ProcessedGame>): DateGroup[] {
+  const dateMap = new Map<string, ProcessedGame[]>()
   for (const game of Array.from(processedGames.values())) {
-    const info = COMP_INFO[game.sport_key] ?? {
-      label: game.sport_key,
-      emoji: '⚽',
-      gradient: 'from-green-700 to-green-600',
-    }
-
-    if (!compMap.has(game.sport_key)) {
-      compMap.set(game.sport_key, {
-        label: info.label,
-        emoji: info.emoji,
-        gradient: info.gradient,
-        dateMap: new Map(),
-      })
-    }
-
-    const comp = compMap.get(game.sport_key)!
     const dateKey = new Date(game.commence_time).toLocaleDateString('en-CA', { timeZone: SP_TZ })
-
-    if (!comp.dateMap.has(dateKey)) comp.dateMap.set(dateKey, [])
-    comp.dateMap.get(dateKey)!.push(game)
+    if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
+    dateMap.get(dateKey)!.push(game)
   }
-
-  return Array.from(compMap.entries()).map(([sportKey, data]) => ({
-    sportKey,
-    label: data.label,
-    emoji: data.emoji,
-    gradient: data.gradient,
-    dates: Array.from(data.dateMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([dateKey, games]) => ({
-        dateKey,
-        games: games.sort(
-          (a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime()
-        ),
-      })),
-  }))
+  return Array.from(dateMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([dateKey, games]) => ({
+      dateKey,
+      games: games.sort(
+        (a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime()
+      ),
+    }))
 }
 
 function short(name: string): string {
@@ -136,7 +99,10 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
   const [selections, setSelections] = useState<Record<string, Selection>>({})
 
   const processedGames = useMemo(() => buildProcessedGames(games), [games])
-  const compGroups = useMemo(() => buildCompGroups(processedGames), [processedGames])
+  const dateGroups = useMemo(() => buildDateGroups(processedGames), [processedGames])
+
+  const sportKey = games[0]?.sport_key ?? 'soccer_brazil_serie_b'
+  const gradient = COMP_INFO[sportKey]?.gradient ?? 'from-green-700 to-green-600'
 
   const ranking = useMemo((): RankedBm[] => {
     const entries = Object.entries(selections) as [string, Selection][]
@@ -181,7 +147,7 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
   }
 
   const selectedCount = Object.keys(selections).length
-  const totalGames = Array.from(processedGames.values()).length
+  const totalGames = processedGames.size
 
   return (
     <div className="space-y-8">
@@ -205,89 +171,76 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
             <p className="text-gray-500">Nenhum jogo disponível no momento.</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {compGroups.map((cg) => (
-              <div key={cg.sportKey}>
-                {/* Competition header */}
-                <div className={`bg-gradient-to-r ${cg.gradient} px-4 py-2.5 rounded-xl mb-3 flex items-center gap-2`}>
-                  <span className="text-lg leading-none">{cg.emoji}</span>
-                  <span className="text-white font-bold text-sm">{cg.label}</span>
+          <div className="space-y-4">
+            {dateGroups.map((dg) => (
+              <div key={dg.dateKey}>
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    📅 {formatDateHeader(dg.dateKey)}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-200" />
                 </div>
 
-                {/* Date groups */}
-                <div className="space-y-4">
-                  {cg.dates.map((dg) => (
-                    <div key={dg.dateKey}>
-                      {/* Date sub-header */}
-                      <div className="flex items-center gap-2 mb-2 px-1">
-                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                          📅 {formatDateHeader(dg.dateKey)}
-                        </span>
-                        <div className="flex-1 h-px bg-gray-200" />
-                      </div>
+                <div className="space-y-2">
+                  {dg.games.map((game) => {
+                    const sel = selections[game.id]
+                    return (
+                      <div
+                        key={game.id}
+                        className={`bg-white rounded-xl border shadow-sm transition-all ${
+                          sel ? 'border-green-300 shadow-green-50' : 'border-gray-100'
+                        }`}
+                      >
+                        <div className={`px-4 py-2 bg-gradient-to-r ${gradient} rounded-t-xl flex justify-between items-center`}>
+                          <span className="text-white text-xs font-medium">
+                            {formatDateLabel(game.commence_time)}
+                          </span>
+                          <span className="text-green-100 text-xs">
+                            {formatTime(game.commence_time)}
+                          </span>
+                        </div>
 
-                      {/* Games */}
-                      <div className="space-y-2">
-                        {dg.games.map((game) => {
-                          const sel = selections[game.id]
-                          return (
-                            <div
-                              key={game.id}
-                              className={`bg-white rounded-xl border shadow-sm transition-all ${
-                                sel ? 'border-green-300 shadow-green-50' : 'border-gray-100'
-                              }`}
-                            >
-                              <div className={`px-4 py-2 bg-gradient-to-r ${cg.gradient} rounded-t-xl flex justify-between items-center`}>
-                                <span className="text-white text-xs font-medium">{cg.emoji} {cg.label}</span>
-                                <span className="text-green-100 text-xs">
-                                  {formatDateLabel(game.commence_time)} · {formatTime(game.commence_time)}
-                                </span>
-                              </div>
-
-                              <div className="px-4 py-3.5 flex flex-wrap items-center gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-gray-900 text-sm truncate">
-                                      {game.home_team}
-                                    </span>
-                                    <span className="text-gray-300 text-xs shrink-0">vs</span>
-                                    <span className="font-semibold text-gray-900 text-sm truncate">
-                                      {game.away_team}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="flex gap-2 shrink-0">
-                                  {(['home', 'draw', 'away'] as Selection[]).map((outcome) => {
-                                    const label =
-                                      outcome === 'home'
-                                        ? short(game.home_team)
-                                        : outcome === 'draw'
-                                        ? 'Empate'
-                                        : short(game.away_team)
-                                    const active = sel === outcome
-                                    return (
-                                      <button
-                                        key={outcome}
-                                        onClick={() => toggle(game.id, outcome)}
-                                        className={`px-3 py-1.5 text-sm font-semibold rounded-lg border transition-all ${
-                                          active
-                                            ? 'bg-green-600 border-green-600 text-white shadow-sm'
-                                            : 'bg-white border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700'
-                                        }`}
-                                      >
-                                        {label}
-                                      </button>
-                                    )
-                                  })}
-                                </div>
-                              </div>
+                        <div className="px-4 py-3.5 flex flex-wrap items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-900 text-sm truncate">
+                                {game.home_team}
+                              </span>
+                              <span className="text-gray-300 text-xs shrink-0">vs</span>
+                              <span className="font-semibold text-gray-900 text-sm truncate">
+                                {game.away_team}
+                              </span>
                             </div>
-                          )
-                        })}
+                          </div>
+
+                          <div className="flex gap-2 shrink-0">
+                            {(['home', 'draw', 'away'] as Selection[]).map((outcome) => {
+                              const label =
+                                outcome === 'home'
+                                  ? short(game.home_team)
+                                  : outcome === 'draw'
+                                  ? 'Empate'
+                                  : short(game.away_team)
+                              const active = sel === outcome
+                              return (
+                                <button
+                                  key={outcome}
+                                  onClick={() => toggle(game.id, outcome)}
+                                  className={`px-3 py-1.5 text-sm font-semibold rounded-lg border transition-all ${
+                                    active
+                                      ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                                      : 'bg-white border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             ))}

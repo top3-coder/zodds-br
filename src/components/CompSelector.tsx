@@ -25,20 +25,22 @@ export default function CompSelector() {
   }
 
   return (
-    <div className="flex gap-1 bg-green-900/40 rounded-lg p-0.5">
-      {COMPS.map((comp) => (
-        <button
-          key={comp.key}
-          onClick={() => select(comp.key)}
-          className={`px-3 py-1 text-xs font-semibold rounded-md transition-all whitespace-nowrap ${
-            comp.key === current
-              ? 'bg-white text-green-800 shadow-sm'
-              : 'text-green-200 hover:text-white'
-          }`}
-        >
-          {comp.label}
-        </button>
-      ))}
+    <div className="overflow-x-auto">
+      <div className="flex gap-2 px-4 py-2.5 w-max mx-auto">
+        {COMPS.map((comp) => (
+          <button
+            key={comp.key}
+            onClick={() => select(comp.key)}
+            className={`px-4 py-1.5 text-sm font-semibold rounded-full border transition-all whitespace-nowrap ${
+              comp.key === current
+                ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                : 'bg-white border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700'
+            }`}
+          >
+            {comp.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
