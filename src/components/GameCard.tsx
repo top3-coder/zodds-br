@@ -30,7 +30,12 @@ function processBookmakers(game: Game): ProcessedBm[] {
         away: h2h.outcomes.find((o) => o.name === game.away_team)?.price ?? null,
       }
     })
-    .filter((b): b is ProcessedBm => b !== null)
+    .filter((b): b is ProcessedBm => {
+      if (b === null) return false
+      // Discard bookmakers with clearly corrupt odds (live drift or bad data)
+      const odds = [b.home, b.draw, b.away].filter((v): v is number => v !== null)
+      return odds.length > 0 && odds.every((o) => o >= 1.05 && o <= 100)
+    })
     .sort((a, b) => a.title.localeCompare(b.title))
 }
 

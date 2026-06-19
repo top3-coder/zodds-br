@@ -1,3 +1,5 @@
+import NavTabs from './NavTabs'
+
 function ChartBarIcon() {
   return (
     <svg
@@ -37,11 +39,10 @@ export default function Header() {
       </div>
 
       <div className="border-t border-green-700/50">
-        <div className="max-w-5xl mx-auto px-4 py-1.5">
-          <p className="text-green-200 text-xs">
-            As odds em{' '}
-            <span className="font-semibold text-green-100">verde com ↑</span> são as melhores
-            disponíveis para aquele resultado.
+        <div className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
+          <NavTabs />
+          <p className="text-green-200 text-xs hidden sm:block">
+            Odds em <span className="font-semibold text-green-100">verde ↑</span> = melhores disponíveis
           </p>
         </div>
       </div>

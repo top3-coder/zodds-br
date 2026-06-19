@@ -1,27 +1,7 @@
-import { Game } from '@/lib/types'
 import Header from '@/components/Header'
 import GameCard from '@/components/GameCard'
 import { groupGamesByDate, formatDateHeader } from '@/lib/utils'
-
-async function getOdds(): Promise<Game[]> {
-  try {
-    const url = new URL('https://api.the-odds-api.com/v4/sports/soccer_brazil_serie_b/odds/')
-    url.searchParams.set('apiKey', process.env.ODDS_API_KEY ?? '')
-    url.searchParams.set('regions', 'eu,us')
-    url.searchParams.set('markets', 'h2h')
-    url.searchParams.set('dateFormat', 'iso')
-    url.searchParams.set('oddsFormat', 'decimal')
-
-    const res = await fetch(url.toString(), { next: { revalidate: 300 } })
-
-    if (!res.ok) return []
-
-    const data: unknown = await res.json()
-    return Array.isArray(data) ? data : []
-  } catch {
-    return []
-  }
-}
+import { getOdds } from '@/lib/api'
 
 export default async function Home() {
   const games = await getOdds()
