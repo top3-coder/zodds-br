@@ -6,14 +6,18 @@ import { getBookmakerUrl, ALLOWED_BOOKMAKERS } from '@/lib/bookmakers'
 import { formatTime, formatDateLabel, formatDateHeader } from '@/lib/utils'
 import { COMP_INFO } from '@/lib/competitions'
 
-type Selection = 'home' | 'draw' | 'away'
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface BmH2H  { home: number | null; draw: number | null; away: number | null }
+interface BmTotals { point: number; over: number | null; under: number | null }
+interface BmBtts  { yes: number | null; no: number | null }
 
 interface ProcessedBm {
   key: string
   title: string
-  home: number | null
-  draw: number | null
-  away: number | null
+  h2h?: BmH2H
+  totals?: BmTotals
+  btts?: BmBtts
 }
 
 interface ProcessedGame {
@@ -37,27 +41,54 @@ interface DateGroup {
   games: ProcessedGame[]
 }
 
+// selections[gameId][marketKey] = outcomeName
+type Selections = Record<string, Record<string, string>>
+
 const MEDALS = ['🥇', '🥈', '🥉']
 const SP_TZ = 'America/Sao_Paulo'
+
+// ─── Processing ───────────────────────────────────────────────────────────────
 
 function buildProcessedGames(games: Game[]): Map<string, ProcessedGame> {
   const map = new Map<string, ProcessedGame>()
   for (const game of games) {
-    const bookmakers = game.bookmakers
+    const bookmakers: ProcessedBm[] = game.bookmakers
       .filter((bm) => ALLOWED_BOOKMAKERS.has(bm.key))
       .map((bm) => {
-        const h2h = bm.markets.find((m) => m.key === 'h2h')
-        return {
-          key: bm.key,
-          title: bm.title,
-          home: h2h?.outcomes.find((o) => o.name === game.home_team)?.price ?? null,
-          draw: h2h?.outcomes.find((o) => o.name === 'Draw')?.price ?? null,
-          away: h2h?.outcomes.find((o) => o.name === game.away_team)?.price ?? null,
-        }
+        const h2hMkt = bm.markets.find((m) => m.key === 'h2h')
+        const totalsMkt = bm.markets.find((m) => m.key === 'totals')
+        const bttsMkt = bm.markets.find((m) => m.key === 'btts')
+
+        const h2h: BmH2H | undefined = h2hMkt
+          ? {
+              home: h2hMkt.outcomes.find((o) => o.name === game.home_team)?.price ?? null,
+              draw: h2hMkt.outcomes.find((o) => o.name === 'Draw')?.price ?? null,
+              away: h2hMkt.outcomes.find((o) => o.name === game.away_team)?.price ?? null,
+            }
+          : undefined
+
+        const totals: BmTotals | undefined = totalsMkt
+          ? {
+              point: totalsMkt.outcomes[0]?.point ?? 2.5,
+              over: totalsMkt.outcomes.find((o) => o.name === 'Over')?.price ?? null,
+              under: totalsMkt.outcomes.find((o) => o.name === 'Under')?.price ?? null,
+            }
+          : undefined
+
+        const btts: BmBtts | undefined = bttsMkt
+          ? {
+              yes: bttsMkt.outcomes.find((o) => o.name === 'Yes')?.price ?? null,
+              no: bttsMkt.outcomes.find((o) => o.name === 'No')?.price ?? null,
+            }
+          : undefined
+
+        return { key: bm.key, title: bm.title, h2h, totals, btts }
       })
       .filter((bm) => {
-        const odds = [bm.home, bm.draw, bm.away].filter((v): v is number => v !== null)
-        return odds.length > 0 && odds.every((o) => o >= 1.05 && o <= 100)
+        const validH2H = bm.h2h && Object.values(bm.h2h).some((v) => v !== null && v >= 1.05 && v <= 100)
+        const validTotals = bm.totals && [bm.totals.over, bm.totals.under].some((v) => v !== null && v >= 1.05 && v <= 100)
+        const validBtts = bm.btts && [bm.btts.yes, bm.btts.no].some((v) => v !== null && v >= 1.05 && v <= 100)
+        return validH2H || validTotals || validBtts
       })
 
     if (bookmakers.length > 0) {
@@ -91,12 +122,123 @@ function buildDateGroups(processedGames: Map<string, ProcessedGame>): DateGroup[
     }))
 }
 
+function getOddFromBm(bm: ProcessedBm, market: string, outcome: string): number | null {
+  if (market === 'h2h' && bm.h2h) {
+    if (outcome === 'home') return bm.h2h.home
+    if (outcome === 'draw') return bm.h2h.draw
+    if (outcome === 'away') return bm.h2h.away
+  }
+  if (market === 'totals' && bm.totals) {
+    if (outcome === 'Over') return bm.totals.over
+    if (outcome === 'Under') return bm.totals.under
+  }
+  if (market === 'btts' && bm.btts) {
+    if (outcome === 'Yes') return bm.btts.yes
+    if (outcome === 'No') return bm.btts.no
+  }
+  return null
+}
+
 function short(name: string): string {
   return name.length <= 12 ? name : name.split(' ')[0]
 }
 
+// ─── Game Card ────────────────────────────────────────────────────────────────
+
+function MultiplasCard({
+  game,
+  gameSels,
+  gradient,
+  onToggle,
+}: {
+  game: ProcessedGame
+  gameSels: Record<string, string>
+  gradient: string
+  onToggle: (gameId: string, market: string, outcome: string) => void
+}) {
+  const hasH2H = game.bookmakers.some((bm) => bm.h2h)
+  const hasTotals = game.bookmakers.some((bm) => bm.totals)
+  const hasBtts = game.bookmakers.some((bm) => bm.btts)
+  const totalsPoint = game.bookmakers.find((bm) => bm.totals)?.totals?.point ?? 2.5
+
+  const anySelected = Object.keys(gameSels).length > 0
+
+  function isActive(market: string, outcome: string) {
+    return gameSels[market] === outcome
+  }
+
+  const btnBase = 'px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all whitespace-nowrap'
+  const btnActive = 'bg-green-600 border-green-600 text-white shadow-sm'
+  const btnIdle = 'bg-white border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700'
+
+  return (
+    <div
+      className={`bg-white rounded-xl border shadow-sm transition-all ${
+        anySelected ? 'border-green-300 shadow-green-50' : 'border-gray-100'
+      }`}
+    >
+      <div className={`px-4 py-2 bg-gradient-to-r ${gradient} rounded-t-xl flex justify-between items-center`}>
+        <span className="text-white text-xs font-medium">{formatDateLabel(game.commence_time)}</span>
+        <span className="text-green-100 text-xs">{formatTime(game.commence_time)}</span>
+      </div>
+
+      <div className="px-4 pt-3 pb-1">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-900 text-sm truncate">{game.home_team}</span>
+          <span className="text-gray-300 text-xs shrink-0">vs</span>
+          <span className="font-semibold text-gray-900 text-sm truncate">{game.away_team}</span>
+        </div>
+      </div>
+
+      <div className="px-4 pb-3.5 space-y-2.5 mt-2">
+        {hasH2H && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400 w-16 shrink-0">Resultado</span>
+            <div className="flex gap-1 flex-wrap">
+              {(['home', 'draw', 'away'] as const).map((outcome) => {
+                const label = outcome === 'home' ? short(game.home_team) : outcome === 'draw' ? 'Empate' : short(game.away_team)
+                return (
+                  <button
+                    key={outcome}
+                    onClick={() => onToggle(game.id, 'h2h', outcome)}
+                    className={`${btnBase} ${isActive('h2h', outcome) ? btnActive : btnIdle}`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {(hasTotals || hasBtts) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400 w-16 shrink-0">Gols</span>
+            <div className="flex gap-1 flex-wrap">
+              {hasTotals && (
+                <>
+                  <button onClick={() => onToggle(game.id, 'totals', 'Over')} className={`${btnBase} ${isActive('totals', 'Over') ? btnActive : btnIdle}`}>+{totalsPoint}</button>
+                  <button onClick={() => onToggle(game.id, 'totals', 'Under')} className={`${btnBase} ${isActive('totals', 'Under') ? btnActive : btnIdle}`}>-{totalsPoint}</button>
+                </>
+              )}
+              {hasBtts && (
+                <>
+                  <button onClick={() => onToggle(game.id, 'btts', 'Yes')} className={`${btnBase} ${isActive('btts', 'Yes') ? btnActive : btnIdle}`}>BTTS Sim</button>
+                  <button onClick={() => onToggle(game.id, 'btts', 'No')} className={`${btnBase} ${isActive('btts', 'No') ? btnActive : btnIdle}`}>BTTS Não</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function MultiplasBuilder({ games }: { games: Game[] }) {
-  const [selections, setSelections] = useState<Record<string, Selection>>({})
+  const [selections, setSelections] = useState<Selections>({})
 
   const processedGames = useMemo(() => buildProcessedGames(games), [games])
   const dateGroups = useMemo(() => buildDateGroups(processedGames), [processedGames])
@@ -104,28 +246,53 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
   const sportKey = games[0]?.sport_key ?? 'soccer_brazil_serie_b'
   const gradient = COMP_INFO[sportKey]?.gradient ?? 'from-green-700 to-green-600'
 
+  function toggle(gameId: string, market: string, outcome: string) {
+    setSelections((prev) => {
+      const gameSels = { ...(prev[gameId] ?? {}) }
+      if (gameSels[market] === outcome) {
+        delete gameSels[market]
+      } else {
+        gameSels[market] = outcome
+      }
+      if (Object.keys(gameSels).length === 0) {
+        const next = { ...prev }
+        delete next[gameId]
+        return next
+      }
+      return { ...prev, [gameId]: gameSels }
+    })
+  }
+
+  const allSels = useMemo(() => {
+    const list: { gameId: string; market: string; outcome: string }[] = []
+    for (const [gameId, mktSels] of Object.entries(selections)) {
+      for (const [market, outcome] of Object.entries(mktSels)) {
+        list.push({ gameId, market, outcome })
+      }
+    }
+    return list
+  }, [selections])
+
   const ranking = useMemo((): RankedBm[] => {
-    const entries = Object.entries(selections) as [string, Selection][]
-    if (entries.length < 2) return []
+    if (allSels.length < 2) return []
 
     const allBmKeys = new Set<string>()
-    for (const [gameId] of entries) {
+    for (const { gameId } of allSels) {
       processedGames.get(gameId)?.bookmakers.forEach((bm) => allBmKeys.add(bm.key))
     }
 
     const result: RankedBm[] = []
-
     allBmKeys.forEach((bmKey) => {
       let totalOdd = 1
       let valid = true
       let title = ''
 
-      for (const [gameId, outcome] of entries) {
+      for (const { gameId, market, outcome } of allSels) {
         const bm = processedGames.get(gameId)?.bookmakers.find((b) => b.key === bmKey)
         if (!bm) { valid = false; break }
         title = bm.title
-        const odd = outcome === 'home' ? bm.home : outcome === 'draw' ? bm.draw : bm.away
-        if (odd === null) { valid = false; break }
+        const odd = getOddFromBm(bm, market, outcome)
+        if (odd === null || odd < 1.05) { valid = false; break }
         totalOdd *= odd
       }
 
@@ -133,20 +300,9 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
     })
 
     return result.sort((a, b) => b.totalOdd - a.totalOdd)
-  }, [selections, processedGames])
+  }, [allSels, processedGames])
 
-  function toggle(gameId: string, outcome: Selection) {
-    setSelections((prev) => {
-      if (prev[gameId] === outcome) {
-        const next = { ...prev }
-        delete next[gameId]
-        return next
-      }
-      return { ...prev, [gameId]: outcome }
-    })
-  }
-
-  const selectedCount = Object.keys(selections).length
+  const selectedCount = allSels.length
   const totalGames = processedGames.size
 
   return (
@@ -180,67 +336,16 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
                   </span>
                   <div className="flex-1 h-px bg-gray-200" />
                 </div>
-
                 <div className="space-y-2">
-                  {dg.games.map((game) => {
-                    const sel = selections[game.id]
-                    return (
-                      <div
-                        key={game.id}
-                        className={`bg-white rounded-xl border shadow-sm transition-all ${
-                          sel ? 'border-green-300 shadow-green-50' : 'border-gray-100'
-                        }`}
-                      >
-                        <div className={`px-4 py-2 bg-gradient-to-r ${gradient} rounded-t-xl flex justify-between items-center`}>
-                          <span className="text-white text-xs font-medium">
-                            {formatDateLabel(game.commence_time)}
-                          </span>
-                          <span className="text-green-100 text-xs">
-                            {formatTime(game.commence_time)}
-                          </span>
-                        </div>
-
-                        <div className="px-4 py-3.5 flex flex-wrap items-center gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-900 text-sm truncate">
-                                {game.home_team}
-                              </span>
-                              <span className="text-gray-300 text-xs shrink-0">vs</span>
-                              <span className="font-semibold text-gray-900 text-sm truncate">
-                                {game.away_team}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex gap-2 shrink-0">
-                            {(['home', 'draw', 'away'] as Selection[]).map((outcome) => {
-                              const label =
-                                outcome === 'home'
-                                  ? short(game.home_team)
-                                  : outcome === 'draw'
-                                  ? 'Empate'
-                                  : short(game.away_team)
-                              const active = sel === outcome
-                              return (
-                                <button
-                                  key={outcome}
-                                  onClick={() => toggle(game.id, outcome)}
-                                  className={`px-3 py-1.5 text-sm font-semibold rounded-lg border transition-all ${
-                                    active
-                                      ? 'bg-green-600 border-green-600 text-white shadow-sm'
-                                      : 'bg-white border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700'
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
+                  {dg.games.map((game) => (
+                    <MultiplasCard
+                      key={game.id}
+                      game={game}
+                      gameSels={selections[game.id] ?? {}}
+                      gradient={gradient}
+                      onToggle={toggle}
+                    />
+                  ))}
                 </div>
               </div>
             ))}
@@ -271,7 +376,7 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
         ) : ranking.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
             <p className="text-gray-400 text-sm">
-              Nenhuma casa possui odds para todos os jogos selecionados.
+              Nenhuma casa possui odds para todos os resultados selecionados.
             </p>
           </div>
         ) : (

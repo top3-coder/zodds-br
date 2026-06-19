@@ -1,11 +1,7 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-
-const COMPS = [
-  { key: 'serie-b', label: '⚽ Série B' },
-  { key: 'copa', label: '🌍 Copa 2026' },
-]
+import { COMP_LIST } from '@/lib/competitions'
 
 export default function CompSelector() {
   const router = useRouter()
@@ -13,12 +9,12 @@ export default function CompSelector() {
   const searchParams = useSearchParams()
   const current = searchParams.get('comp') ?? 'serie-b'
 
-  function select(key: string) {
+  function select(slug: string) {
     const params = new URLSearchParams(searchParams.toString())
-    if (key === 'serie-b') {
+    if (slug === 'serie-b') {
       params.delete('comp')
     } else {
-      params.set('comp', key)
+      params.set('comp', slug)
     }
     const qs = params.toString()
     router.push(`${pathname}${qs ? `?${qs}` : ''}`)
@@ -27,12 +23,12 @@ export default function CompSelector() {
   return (
     <div className="overflow-x-auto">
       <div className="flex gap-2 px-4 py-2.5 w-max mx-auto">
-        {COMPS.map((comp) => (
+        {COMP_LIST.map((comp) => (
           <button
-            key={comp.key}
-            onClick={() => select(comp.key)}
+            key={comp.slug}
+            onClick={() => select(comp.slug)}
             className={`px-4 py-1.5 text-sm font-semibold rounded-full border transition-all whitespace-nowrap ${
-              comp.key === current
+              comp.slug === current
                 ? 'bg-green-600 border-green-600 text-white shadow-sm'
                 : 'bg-white border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700'
             }`}

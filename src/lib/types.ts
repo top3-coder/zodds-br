@@ -1,11 +1,14 @@
 export interface Outcome {
   name: string
   price: number
+  point?: number
+  description?: string
 }
 
 export interface Market {
   key: string
   last_update: string
+  description?: string
   outcomes: Outcome[]
 }
 

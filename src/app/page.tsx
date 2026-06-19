@@ -1,5 +1,5 @@
 import Header from '@/components/Header'
-import GameCard from '@/components/GameCard'
+import GamesView from '@/components/GamesView'
 import { groupGamesByDate, formatDateHeader } from '@/lib/utils'
 import { getOdds } from '@/lib/api'
 import { getSportKey, COMP_INFO } from '@/lib/competitions'
@@ -20,6 +20,7 @@ export default async function Home({
   )
   const grouped = groupGamesByDate(sorted)
   const dateKeys = Object.keys(grouped).sort()
+  const dateLabels = Object.fromEntries(dateKeys.map((k) => [k, formatDateHeader(k)]))
 
   return (
     <>
@@ -36,26 +37,7 @@ export default async function Home({
             <p className="text-gray-400 text-sm mt-1">Tente novamente mais tarde.</p>
           </div>
         ) : (
-          <div className="space-y-10">
-            {dateKeys.map((dateKey) => (
-              <section key={dateKey}>
-                <div className="flex items-center gap-3 mb-4">
-                  <h2 className="text-xl font-bold text-gray-800 capitalize">
-                    {formatDateHeader(dateKey)}
-                  </h2>
-                  <span className="bg-green-100 text-green-700 text-sm font-semibold px-2.5 py-0.5 rounded-full">
-                    {grouped[dateKey].length}{' '}
-                    {grouped[dateKey].length === 1 ? 'jogo' : 'jogos'}
-                  </span>
-                </div>
-                <div className="space-y-4">
-                  {grouped[dateKey].map((game) => (
-                    <GameCard key={game.id} game={game} />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          <GamesView grouped={grouped} dateKeys={dateKeys} dateLabels={dateLabels} />
         )}
 
         <footer className="mt-16 pb-8 border-t border-gray-200 pt-6 text-center space-y-1.5">

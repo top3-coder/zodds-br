@@ -7,7 +7,7 @@ export async function getOdds(sportKey = 'soccer_brazil_serie_b'): Promise<Game[
     )
     url.searchParams.set('apiKey', process.env.ODDS_API_KEY ?? '')
     url.searchParams.set('regions', 'eu,us')
-    url.searchParams.set('markets', 'h2h')
+    url.searchParams.set('markets', 'h2h,totals')
     url.searchParams.set('dateFormat', 'iso')
     url.searchParams.set('oddsFormat', 'decimal')
 
@@ -16,7 +16,6 @@ export async function getOdds(sportKey = 'soccer_brazil_serie_b'): Promise<Game[
     const data: unknown = await res.json()
     if (!Array.isArray(data)) return []
 
-    // Exclude in-progress matches — live odds are extreme and useless for pre-match comparison
     const now = new Date()
     return data.filter((g: Game) => new Date(g.commence_time) > now)
   } catch {
