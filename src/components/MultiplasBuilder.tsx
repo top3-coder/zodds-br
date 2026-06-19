@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react'
 import { Game } from '@/lib/types'
 import { getBookmakerUrl, ALLOWED_BOOKMAKERS } from '@/lib/bookmakers'
-import { formatTime, formatDateLabel } from '@/lib/utils'
+import { formatTime, formatDateLabel, formatDateHeader } from '@/lib/utils'
+import { COMP_INFO } from '@/lib/competitions'
 
 type Selection = 'home' | 'draw' | 'away'
 
@@ -17,6 +18,7 @@ interface ProcessedBm {
 
 interface ProcessedGame {
   id: string
+  sport_key: string
   home_team: string
   away_team: string
   commence_time: string
@@ -30,7 +32,21 @@ interface RankedBm {
   totalOdd: number
 }
 
+interface DateGroup {
+  dateKey: string
+  games: ProcessedGame[]
+}
+
+interface CompGroup {
+  sportKey: string
+  label: string
+  emoji: string
+  gradient: string
+  dates: DateGroup[]
+}
+
 const MEDALS = ['🥇', '🥈', '🥉']
+const SP_TZ = 'America/Sao_Paulo'
 
 function buildProcessedGames(games: Game[]): Map<string, ProcessedGame> {
   const map = new Map<string, ProcessedGame>()
@@ -53,10 +69,63 @@ function buildProcessedGames(games: Game[]): Map<string, ProcessedGame> {
       })
 
     if (bookmakers.length > 0) {
-      map.set(game.id, { id: game.id, home_team: game.home_team, away_team: game.away_team, commence_time: game.commence_time, bookmakers })
+      map.set(game.id, {
+        id: game.id,
+        sport_key: game.sport_key,
+        home_team: game.home_team,
+        away_team: game.away_team,
+        commence_time: game.commence_time,
+        bookmakers,
+      })
     }
   }
   return map
+}
+
+// Groups games by competition (maintaining input order) then by date within each competition
+function buildCompGroups(processedGames: Map<string, ProcessedGame>): CompGroup[] {
+  const compMap = new Map<
+    string,
+    { label: string; emoji: string; gradient: string; dateMap: Map<string, ProcessedGame[]> }
+  >()
+
+  for (const game of Array.from(processedGames.values())) {
+    const info = COMP_INFO[game.sport_key] ?? {
+      label: game.sport_key,
+      emoji: '⚽',
+      gradient: 'from-green-700 to-green-600',
+    }
+
+    if (!compMap.has(game.sport_key)) {
+      compMap.set(game.sport_key, {
+        label: info.label,
+        emoji: info.emoji,
+        gradient: info.gradient,
+        dateMap: new Map(),
+      })
+    }
+
+    const comp = compMap.get(game.sport_key)!
+    const dateKey = new Date(game.commence_time).toLocaleDateString('en-CA', { timeZone: SP_TZ })
+
+    if (!comp.dateMap.has(dateKey)) comp.dateMap.set(dateKey, [])
+    comp.dateMap.get(dateKey)!.push(game)
+  }
+
+  return Array.from(compMap.entries()).map(([sportKey, data]) => ({
+    sportKey,
+    label: data.label,
+    emoji: data.emoji,
+    gradient: data.gradient,
+    dates: Array.from(data.dateMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([dateKey, games]) => ({
+        dateKey,
+        games: games.sort(
+          (a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime()
+        ),
+      })),
+  }))
 }
 
 function short(name: string): string {
@@ -67,20 +136,12 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
   const [selections, setSelections] = useState<Record<string, Selection>>({})
 
   const processedGames = useMemo(() => buildProcessedGames(games), [games])
-
-  const gameList = useMemo(
-    () =>
-      Array.from(processedGames.values()).sort(
-        (a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime()
-      ),
-    [processedGames]
-  )
+  const compGroups = useMemo(() => buildCompGroups(processedGames), [processedGames])
 
   const ranking = useMemo((): RankedBm[] => {
     const entries = Object.entries(selections) as [string, Selection][]
     if (entries.length < 2) return []
 
-    // Collect all bookmaker keys present in selected games
     const allBmKeys = new Set<string>()
     for (const [gameId] of entries) {
       processedGames.get(gameId)?.bookmakers.forEach((bm) => allBmKeys.add(bm.key))
@@ -120,6 +181,7 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
   }
 
   const selectedCount = Object.keys(selections).length
+  const totalGames = Array.from(processedGames.values()).length
 
   return (
     <div className="space-y-8">
@@ -137,75 +199,103 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
           )}
         </div>
 
-        {gameList.length === 0 ? (
+        {totalGames === 0 ? (
           <div className="text-center py-16 bg-white rounded-xl border border-gray-100 shadow-sm">
             <div className="text-4xl mb-3">⚽</div>
             <p className="text-gray-500">Nenhum jogo disponível no momento.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {gameList.map((game) => {
-              const sel = selections[game.id]
-              return (
-                <div
-                  key={game.id}
-                  className={`bg-white rounded-xl border shadow-sm transition-all ${
-                    sel ? 'border-green-300 shadow-green-50' : 'border-gray-100'
-                  }`}
-                >
-                  <div className="px-4 py-2 bg-gradient-to-r from-green-700 to-green-600 rounded-t-xl flex justify-between items-center">
-                    <span className="text-white text-xs font-medium">⚽ Série B</span>
-                    <span className="text-green-100 text-xs">
-                      {formatDateLabel(game.commence_time)} · {formatTime(game.commence_time)}
-                    </span>
-                  </div>
+          <div className="space-y-6">
+            {compGroups.map((cg) => (
+              <div key={cg.sportKey}>
+                {/* Competition header */}
+                <div className={`bg-gradient-to-r ${cg.gradient} px-4 py-2.5 rounded-xl mb-3 flex items-center gap-2`}>
+                  <span className="text-lg leading-none">{cg.emoji}</span>
+                  <span className="text-white font-bold text-sm">{cg.label}</span>
+                </div>
 
-                  <div className="px-4 py-3.5 flex flex-wrap items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900 text-sm truncate">
-                          {game.home_team}
+                {/* Date groups */}
+                <div className="space-y-4">
+                  {cg.dates.map((dg) => (
+                    <div key={dg.dateKey}>
+                      {/* Date sub-header */}
+                      <div className="flex items-center gap-2 mb-2 px-1">
+                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          📅 {formatDateHeader(dg.dateKey)}
                         </span>
-                        <span className="text-gray-300 text-xs shrink-0">vs</span>
-                        <span className="font-semibold text-gray-900 text-sm truncate">
-                          {game.away_team}
-                        </span>
+                        <div className="flex-1 h-px bg-gray-200" />
+                      </div>
+
+                      {/* Games */}
+                      <div className="space-y-2">
+                        {dg.games.map((game) => {
+                          const sel = selections[game.id]
+                          return (
+                            <div
+                              key={game.id}
+                              className={`bg-white rounded-xl border shadow-sm transition-all ${
+                                sel ? 'border-green-300 shadow-green-50' : 'border-gray-100'
+                              }`}
+                            >
+                              <div className={`px-4 py-2 bg-gradient-to-r ${cg.gradient} rounded-t-xl flex justify-between items-center`}>
+                                <span className="text-white text-xs font-medium">{cg.emoji} {cg.label}</span>
+                                <span className="text-green-100 text-xs">
+                                  {formatDateLabel(game.commence_time)} · {formatTime(game.commence_time)}
+                                </span>
+                              </div>
+
+                              <div className="px-4 py-3.5 flex flex-wrap items-center gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-gray-900 text-sm truncate">
+                                      {game.home_team}
+                                    </span>
+                                    <span className="text-gray-300 text-xs shrink-0">vs</span>
+                                    <span className="font-semibold text-gray-900 text-sm truncate">
+                                      {game.away_team}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex gap-2 shrink-0">
+                                  {(['home', 'draw', 'away'] as Selection[]).map((outcome) => {
+                                    const label =
+                                      outcome === 'home'
+                                        ? short(game.home_team)
+                                        : outcome === 'draw'
+                                        ? 'Empate'
+                                        : short(game.away_team)
+                                    const active = sel === outcome
+                                    return (
+                                      <button
+                                        key={outcome}
+                                        onClick={() => toggle(game.id, outcome)}
+                                        className={`px-3 py-1.5 text-sm font-semibold rounded-lg border transition-all ${
+                                          active
+                                            ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                                            : 'bg-white border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700'
+                                        }`}
+                                      >
+                                        {label}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
-
-                    <div className="flex gap-2 shrink-0">
-                      {(['home', 'draw', 'away'] as Selection[]).map((outcome) => {
-                        const label =
-                          outcome === 'home'
-                            ? short(game.home_team)
-                            : outcome === 'draw'
-                            ? 'Empate'
-                            : short(game.away_team)
-                        const active = sel === outcome
-                        return (
-                          <button
-                            key={outcome}
-                            onClick={() => toggle(game.id, outcome)}
-                            className={`px-3 py-1.5 text-sm font-semibold rounded-lg border transition-all ${
-                              active
-                                ? 'bg-green-600 border-green-600 text-white shadow-sm'
-                                : 'bg-white border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              )
-            })}
+              </div>
+            ))}
           </div>
         )}
       </section>
 
-      {/* Step 2 */}
+      {/* Step 2 — Ranking */}
       <section>
         <div className="flex items-center gap-3 mb-4">
           <div
@@ -233,7 +323,6 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            {/* Table header */}
             <div className="bg-gray-50 border-b border-gray-100 px-4 py-2.5 grid grid-cols-[2rem_1fr_auto_auto] gap-4 items-center">
               <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">#</span>
               <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">Casa</span>
@@ -241,7 +330,6 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
               <span />
             </div>
 
-            {/* Rows */}
             <div className="divide-y divide-gray-50">
               {ranking.map((bm, idx) => (
                 <div
@@ -250,7 +338,6 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
                     idx === 0 ? 'bg-green-50' : 'hover:bg-gray-50/60'
                   }`}
                 >
-                  {/* Medal / rank */}
                   <div className="text-center text-lg leading-none">
                     {idx < 3 ? (
                       MEDALS[idx]
@@ -258,8 +345,6 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
                       <span className="text-gray-400 text-sm font-semibold">{idx + 1}</span>
                     )}
                   </div>
-
-                  {/* Bookmaker name */}
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="font-semibold text-gray-800 truncate">{bm.title}</span>
                     {idx === 0 && (
@@ -268,17 +353,9 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
                       </span>
                     )}
                   </div>
-
-                  {/* Total odd */}
-                  <span
-                    className={`font-bold text-xl tabular-nums ${
-                      idx === 0 ? 'text-green-700' : 'text-gray-700'
-                    }`}
-                  >
+                  <span className={`font-bold text-xl tabular-nums ${idx === 0 ? 'text-green-700' : 'text-gray-700'}`}>
                     {bm.totalOdd.toFixed(2)}
                   </span>
-
-                  {/* Apostar button */}
                   <a
                     href={bm.url}
                     target="_blank"
@@ -291,7 +368,6 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
               ))}
             </div>
 
-            {/* Footer */}
             <div className="border-t border-green-100 bg-green-50 px-4 py-2.5 flex justify-between items-center flex-wrap gap-2">
               <span className="text-xs text-green-700 font-medium">
                 {selectedCount} resultado{selectedCount !== 1 ? 's' : ''} · {ranking.length} casa

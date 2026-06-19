@@ -1,6 +1,7 @@
 import { Game } from '@/lib/types'
 import { getBookmakerUrl, ALLOWED_BOOKMAKERS } from '@/lib/bookmakers'
 import { formatTime, formatDateLabel } from '@/lib/utils'
+import { COMP_INFO } from '@/lib/competitions'
 
 interface Props {
   game: Game
@@ -83,8 +84,10 @@ export default function GameCard({ game }: Props) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
       {/* Card header */}
-      <div className="px-4 py-2.5 bg-gradient-to-r from-green-700 to-green-600 flex items-center justify-between">
-        <span className="text-white text-xs font-medium">⚽ Brasileirão Série B</span>
+      <div className={`px-4 py-2.5 bg-gradient-to-r ${COMP_INFO[game.sport_key]?.gradient ?? 'from-green-700 to-green-600'} flex items-center justify-between`}>
+        <span className="text-white text-xs font-medium">
+          {COMP_INFO[game.sport_key]?.cardLabel ?? game.sport_title}
+        </span>
         <span className="text-green-100 text-xs">
           {formatDateLabel(game.commence_time)} · {formatTime(game.commence_time)}
         </span>

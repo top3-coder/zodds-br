@@ -2,8 +2,20 @@ import Header from '@/components/Header'
 import MultiplasBuilder from '@/components/MultiplasBuilder'
 import { getOdds } from '@/lib/api'
 
-export default async function MultiplasPage() {
-  const games = await getOdds()
+export default async function MultiplasPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>
+}) {
+  const comp = typeof searchParams?.comp === 'string' ? searchParams.comp : 'serie-b'
+
+  const [serieB, copa] = await Promise.all([
+    getOdds('soccer_brazil_serie_b'),
+    getOdds('soccer_fifa_world_cup'),
+  ])
+
+  // Selected competition appears first in the list
+  const games = comp === 'copa' ? [...copa, ...serieB] : [...serieB, ...copa]
 
   return (
     <>

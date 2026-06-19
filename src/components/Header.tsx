@@ -1,4 +1,6 @@
+import { Suspense } from 'react'
 import NavTabs from './NavTabs'
+import CompSelector from './CompSelector'
 
 function ChartBarIcon() {
   return (
@@ -16,8 +18,9 @@ function ChartBarIcon() {
 export default function Header() {
   return (
     <header className="bg-gradient-to-r from-green-800 to-green-600 shadow-lg sticky top-0 z-10">
-      <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+        {/* Logo */}
+        <div className="flex items-center gap-3 shrink-0">
           <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow">
             <ChartBarIcon />
           </div>
@@ -29,18 +32,17 @@ export default function Header() {
           </div>
         </div>
 
-        <div className="text-right hidden sm:block">
-          <p className="text-white text-sm font-semibold">Brasileirão Série B</p>
-          <div className="flex items-center justify-end gap-1.5 mt-0.5">
-            <span className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse" />
-            <p className="text-green-200 text-xs">Ao vivo · atualiza a cada 5 min</p>
-          </div>
-        </div>
+        {/* Competition selector */}
+        <Suspense fallback={<div className="h-8 w-44 rounded-lg bg-green-900/40 animate-pulse" />}>
+          <CompSelector />
+        </Suspense>
       </div>
 
       <div className="border-t border-green-700/50">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
-          <NavTabs />
+          <Suspense fallback={<div className="h-7 w-36 rounded-md bg-green-700/40" />}>
+            <NavTabs />
+          </Suspense>
           <p className="text-green-200 text-xs hidden sm:block">
             Odds em <span className="font-semibold text-green-100">verde ↑</span> = melhores disponíveis
           </p>
