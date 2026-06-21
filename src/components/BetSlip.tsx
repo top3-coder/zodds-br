@@ -23,7 +23,7 @@ export default function BetSlip({ items, totalOdd, bestTitle, bestUrl, onClear }
     <>
       {/* ── Desktop: painel fixo à direita ─────────────────────────────────── */}
       <div
-        className={`hidden lg:flex fixed top-32 right-4 w-72 flex-col bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-30 max-h-[calc(100vh-9rem)] transition-all duration-300 ${
+        className={`hidden lg:flex fixed top-40 right-4 w-72 flex-col bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-30 max-h-[calc(100vh-11rem)] transition-all duration-300 ${
           visible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none'
         }`}
       >

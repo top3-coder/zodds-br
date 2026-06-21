@@ -9,9 +9,10 @@ import BetSlip, { BetSlipItem } from './BetSlip'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface BmH2H  { home: number | null; draw: number | null; away: number | null }
-interface BmTotals { point: number; over: number | null; under: number | null }
-interface BmBtts  { yes: number | null; no: number | null }
+interface BmH2H     { home: number | null; draw: number | null; away: number | null }
+interface BmTotals  { point: number; over: number | null; under: number | null }
+interface BmBtts    { yes: number | null; no: number | null }
+interface BmAltTot  { point: number; over: number | null; under: number | null }
 
 interface ProcessedBm {
   key: string
@@ -19,6 +20,8 @@ interface ProcessedBm {
   h2h?: BmH2H
   totals?: BmTotals
   btts?: BmBtts
+  corners?: BmAltTot
+  cards?: BmAltTot
 }
 
 interface ProcessedGame {
@@ -83,13 +86,36 @@ function buildProcessedGames(games: Game[]): Map<string, ProcessedGame> {
             }
           : undefined
 
-        return { key: bm.key, title: bm.title, h2h, totals, btts }
+        const cornersMkt = bm.markets.find(
+          (m) => m.key === 'alternate_totals' && m.description?.toLowerCase().includes('corner')
+        )
+        const cardsMkt = bm.markets.find(
+          (m) => m.key === 'alternate_totals' && m.description?.toLowerCase().includes('card')
+        )
+        const corners: BmAltTot | undefined = cornersMkt
+          ? {
+              point: cornersMkt.outcomes[0]?.point ?? 9.5,
+              over: cornersMkt.outcomes.find((o) => o.name === 'Over')?.price ?? null,
+              under: cornersMkt.outcomes.find((o) => o.name === 'Under')?.price ?? null,
+            }
+          : undefined
+        const cards: BmAltTot | undefined = cardsMkt
+          ? {
+              point: cardsMkt.outcomes[0]?.point ?? 4.5,
+              over: cardsMkt.outcomes.find((o) => o.name === 'Over')?.price ?? null,
+              under: cardsMkt.outcomes.find((o) => o.name === 'Under')?.price ?? null,
+            }
+          : undefined
+
+        return { key: bm.key, title: bm.title, h2h, totals, btts, corners, cards }
       })
       .filter((bm) => {
         const validH2H = bm.h2h && Object.values(bm.h2h).some((v) => v !== null && v >= 1.05 && v <= 100)
         const validTotals = bm.totals && [bm.totals.over, bm.totals.under].some((v) => v !== null && v >= 1.05 && v <= 100)
         const validBtts = bm.btts && [bm.btts.yes, bm.btts.no].some((v) => v !== null && v >= 1.05 && v <= 100)
-        return validH2H || validTotals || validBtts
+        const validCorners = bm.corners && [bm.corners.over, bm.corners.under].some((v) => v !== null && v >= 1.05 && v <= 100)
+        const validCards = bm.cards && [bm.cards.over, bm.cards.under].some((v) => v !== null && v >= 1.05 && v <= 100)
+        return validH2H || validTotals || validBtts || validCorners || validCards
       })
 
     if (bookmakers.length > 0) {
@@ -137,6 +163,14 @@ function getOddFromBm(bm: ProcessedBm, market: string, outcome: string): number 
     if (outcome === 'Yes') return bm.btts.yes
     if (outcome === 'No') return bm.btts.no
   }
+  if (market === 'corners' && bm.corners) {
+    if (outcome === 'Over') return bm.corners.over
+    if (outcome === 'Under') return bm.corners.under
+  }
+  if (market === 'cards' && bm.cards) {
+    if (outcome === 'Over') return bm.cards.over
+    if (outcome === 'Under') return bm.cards.under
+  }
   return null
 }
 
@@ -160,7 +194,11 @@ function MultiplasCard({
   const hasH2H = game.bookmakers.some((bm) => bm.h2h)
   const hasTotals = game.bookmakers.some((bm) => bm.totals)
   const hasBtts = game.bookmakers.some((bm) => bm.btts)
+  const hasCorners = game.bookmakers.some((bm) => bm.corners)
+  const hasCards = game.bookmakers.some((bm) => bm.cards)
   const totalsPoint = game.bookmakers.find((bm) => bm.totals)?.totals?.point ?? 2.5
+  const cornersPoint = game.bookmakers.find((bm) => bm.corners)?.corners?.point ?? 9.5
+  const cardsPoint = game.bookmakers.find((bm) => bm.cards)?.cards?.point ?? 4.5
 
   const anySelected = Object.keys(gameSels).length > 0
 
@@ -228,6 +266,26 @@ function MultiplasCard({
                   <button onClick={() => onToggle(game.id, 'btts', 'No')} className={`${btnBase} ${isActive('btts', 'No') ? btnActive : btnIdle}`}>BTTS Não</button>
                 </>
               )}
+            </div>
+          </div>
+        )}
+
+        {hasCorners && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400 w-16 shrink-0">Escanteios</span>
+            <div className="flex gap-1 flex-wrap">
+              <button onClick={() => onToggle(game.id, 'corners', 'Over')} className={`${btnBase} ${isActive('corners', 'Over') ? btnActive : btnIdle}`}>+{cornersPoint}</button>
+              <button onClick={() => onToggle(game.id, 'corners', 'Under')} className={`${btnBase} ${isActive('corners', 'Under') ? btnActive : btnIdle}`}>-{cornersPoint}</button>
+            </div>
+          </div>
+        )}
+
+        {hasCards && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400 w-16 shrink-0">Cartões</span>
+            <div className="flex gap-1 flex-wrap">
+              <button onClick={() => onToggle(game.id, 'cards', 'Over')} className={`${btnBase} ${isActive('cards', 'Over') ? btnActive : btnIdle}`}>+{cardsPoint}</button>
+              <button onClick={() => onToggle(game.id, 'cards', 'Under')} className={`${btnBase} ${isActive('cards', 'Under') ? btnActive : btnIdle}`}>-{cardsPoint}</button>
             </div>
           </div>
         )}
@@ -340,6 +398,12 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
           selectionLabel = outcome === 'Over' ? `+${point} Gols` : `-${point} Gols`
         } else if (market === 'btts') {
           selectionLabel = outcome === 'Yes' ? 'BTTS Sim' : 'BTTS Não'
+        } else if (market === 'corners') {
+          const p = game.bookmakers.find((bm) => bm.corners)?.corners?.point ?? 9.5
+          selectionLabel = outcome === 'Over' ? `+${p} Escanteios` : `-${p} Escanteios`
+        } else if (market === 'cards') {
+          const p = game.bookmakers.find((bm) => bm.cards)?.cards?.point ?? 4.5
+          selectionLabel = outcome === 'Over' ? `+${p} Cartões` : `-${p} Cartões`
         }
 
         return {

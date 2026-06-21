@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import GameCard from './GameCard'
 import { Game } from '@/lib/types'
 
@@ -13,38 +13,6 @@ const ALL_TABS: { key: MarketTab; label: string }[] = [
   { key: 'cards', label: 'Cartões' },
 ]
 
-function hasMarketInGames(games: Game[], marketKey: string): boolean {
-  return games.some((g) =>
-    g.bookmakers.some((bm) => bm.markets.some((m) => m.key === marketKey))
-  )
-}
-
-function hasCornersInGames(games: Game[]): boolean {
-  return games.some((g) =>
-    g.bookmakers.some((bm) =>
-      bm.markets.some(
-        (m) =>
-          m.key === 'alternate_totals' &&
-          (m.description?.toLowerCase().includes('corner') ||
-            m.description?.toLowerCase().includes('escanteio'))
-      )
-    )
-  )
-}
-
-function hasCardsInGames(games: Game[]): boolean {
-  return games.some((g) =>
-    g.bookmakers.some((bm) =>
-      bm.markets.some(
-        (m) =>
-          m.key === 'alternate_totals' &&
-          (m.description?.toLowerCase().includes('card') ||
-            m.description?.toLowerCase().includes('cartão'))
-      )
-    )
-  )
-}
-
 export default function GamesView({
   grouped,
   dateKeys,
@@ -56,45 +24,23 @@ export default function GamesView({
 }) {
   const [market, setMarket] = useState<MarketTab>('h2h')
 
-  const allGames = useMemo(
-    () => dateKeys.flatMap((k) => grouped[k]),
-    [grouped, dateKeys]
-  )
-
-  const visibleTabs = useMemo(
-    () =>
-      ALL_TABS.filter((tab) => {
-        if (tab.key === 'h2h') return true
-        if (tab.key === 'goals')
-          return hasMarketInGames(allGames, 'totals') || hasMarketInGames(allGames, 'btts')
-        if (tab.key === 'corners') return hasCornersInGames(allGames)
-        if (tab.key === 'cards') return hasCardsInGames(allGames)
-        return false
-      }),
-    [allGames]
-  )
-
-  const activeTab = visibleTabs.some((t) => t.key === market) ? market : 'h2h'
-
   return (
     <div>
-      {visibleTabs.length > 1 && (
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6">
-          {visibleTabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setMarket(tab.key)}
-              className={`flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-all ${
-                activeTab === tab.key
-                  ? 'bg-white text-green-700 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6">
+        {ALL_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setMarket(tab.key)}
+            className={`flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-all ${
+              market === tab.key
+                ? 'bg-white text-green-700 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       <div className="space-y-10">
         {dateKeys.map((dateKey) => (
@@ -110,7 +56,7 @@ export default function GamesView({
             </div>
             <div className="space-y-4">
               {grouped[dateKey].map((game) => (
-                <GameCard key={game.id} game={game} market={activeTab} />
+                <GameCard key={game.id} game={game} market={market} />
               ))}
             </div>
           </section>
