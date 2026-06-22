@@ -1,7 +1,8 @@
 import { Game } from '@/lib/types'
 import { getBookmakerUrl, ALLOWED_BOOKMAKERS } from '@/lib/bookmakers'
-import { formatTime, formatDateLabel } from '@/lib/utils'
+import { formatTime, formatDateLabel, calcEV } from '@/lib/utils'
 import { COMP_INFO } from '@/lib/competitions'
+import { EVBadge } from './EVBadge'
 import type { MarketTab } from './GamesView'
 
 // ─── H2H ─────────────────────────────────────────────────────────────────────
@@ -98,20 +99,23 @@ function shortName(name: string): string {
   return name.split(' ')[0]
 }
 
-function OddCell({ value, isBest }: { value: number | null; isBest: boolean }) {
+function OddCell({ value, isBest, ev }: { value: number | null; isBest: boolean; ev?: number | null }) {
   if (value === null) return <td className="px-2 py-3 text-center text-gray-300 text-sm">—</td>
   return (
-    <td className={`px-2 py-3 text-center ${isBest ? 'bg-green-50' : ''}`}>
-      <span
-        className={`inline-flex items-center justify-center gap-1 font-bold text-sm rounded-lg px-3 py-1.5 min-w-[52px] ${
-          isBest
-            ? 'text-green-700 bg-green-100 ring-1 ring-green-300 shadow-sm'
-            : 'text-gray-700'
-        }`}
-      >
-        {value.toFixed(2)}
-        {isBest && <span className="text-green-500 font-normal">↑</span>}
-      </span>
+    <td className={`px-2 py-2 text-center ${isBest ? 'bg-green-50' : ''}`}>
+      <div className="flex flex-col items-center gap-0.5">
+        <span
+          className={`inline-flex items-center justify-center gap-1 font-bold text-sm rounded-lg px-3 py-1.5 min-w-[52px] ${
+            isBest
+              ? 'text-green-700 bg-green-100 ring-1 ring-green-300 shadow-sm'
+              : 'text-gray-700'
+          }`}
+        >
+          {value.toFixed(2)}
+          {isBest && <span className="text-green-500 font-normal">↑</span>}
+        </span>
+        <EVBadge ev={ev} />
+      </div>
     </td>
   )
 }
@@ -128,8 +132,6 @@ function CardShell({
   bestSummary?: React.ReactNode
 }) {
   const gradient = COMP_INFO[game.sport_key]?.gradient ?? 'from-green-700 to-green-600'
-  const shortHome = shortName(game.home_team)
-  const shortAway = shortName(game.away_team)
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
@@ -182,6 +184,7 @@ function H2HView({ game }: { game: Game }) {
   const bookmakers = processH2H(game)
   if (bookmakers.length === 0) return null
 
+  const pinnacle = bookmakers.find((b) => b.key === 'pinnacle')
   const shortHome = shortName(game.home_team)
   const shortAway = shortName(game.away_team)
   const bestHome = best(bookmakers.map((b) => b.home))
@@ -220,20 +223,23 @@ function H2HView({ game }: { game: Game }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {bookmakers.map((bm, idx) => (
-              <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                <td className="px-4 py-3"><span className="font-medium text-gray-800">{bm.title}</span></td>
-                <OddCell value={bm.home} isBest={bm.home === bestHome} />
-                <OddCell value={bm.draw} isBest={bm.draw === bestDraw} />
-                <OddCell value={bm.away} isBest={bm.away === bestAway} />
-                <td className="px-3 py-3 text-right">
-                  <a href={bm.url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm">
-                    Apostar →
-                  </a>
-                </td>
-              </tr>
-            ))}
+            {bookmakers.map((bm, idx) => {
+              const isPinnacle = bm.key === 'pinnacle'
+              return (
+                <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                  <td className="px-4 py-3"><span className="font-medium text-gray-800">{bm.title}</span></td>
+                  <OddCell value={bm.home} isBest={bm.home === bestHome} ev={isPinnacle ? undefined : calcEV(pinnacle?.home, bm.home)} />
+                  <OddCell value={bm.draw} isBest={bm.draw === bestDraw} ev={isPinnacle ? undefined : calcEV(pinnacle?.draw, bm.draw)} />
+                  <OddCell value={bm.away} isBest={bm.away === bestAway} ev={isPinnacle ? undefined : calcEV(pinnacle?.away, bm.away)} />
+                  <td className="px-3 py-3 text-right">
+                    <a href={bm.url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm">
+                      Apostar →
+                    </a>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -247,6 +253,7 @@ function GoalsView({ game }: { game: Game }) {
   const bookmakers = processGoals(game)
   if (bookmakers.length === 0) return <EmptyMarket game={game} label="Gols" />
 
+  const pinnacle = bookmakers.find((b) => b.key === 'pinnacle')
   const point = bookmakers[0]?.point ?? 2.5
   const bestOver = best(bookmakers.map((b) => b.over))
   const bestUnder = best(bookmakers.map((b) => b.under))
@@ -296,25 +303,28 @@ function GoalsView({ game }: { game: Game }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {bookmakers.map((bm, idx) => (
-              <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                <td className="px-4 py-3"><span className="font-medium text-gray-800">{bm.title}</span></td>
-                {hasTotals && <>
-                  <OddCell value={bm.over} isBest={bm.over === bestOver} />
-                  <OddCell value={bm.under} isBest={bm.under === bestUnder} />
-                </>}
-                {hasBtts && <>
-                  <OddCell value={bm.yes} isBest={bm.yes === bestYes} />
-                  <OddCell value={bm.no} isBest={bm.no === bestNo} />
-                </>}
-                <td className="px-3 py-3 text-right">
-                  <a href={bm.url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm">
-                    Apostar →
-                  </a>
-                </td>
-              </tr>
-            ))}
+            {bookmakers.map((bm, idx) => {
+              const isPinnacle = bm.key === 'pinnacle'
+              return (
+                <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                  <td className="px-4 py-3"><span className="font-medium text-gray-800">{bm.title}</span></td>
+                  {hasTotals && <>
+                    <OddCell value={bm.over} isBest={bm.over === bestOver} ev={isPinnacle ? undefined : calcEV(pinnacle?.over, bm.over)} />
+                    <OddCell value={bm.under} isBest={bm.under === bestUnder} ev={isPinnacle ? undefined : calcEV(pinnacle?.under, bm.under)} />
+                  </>}
+                  {hasBtts && <>
+                    <OddCell value={bm.yes} isBest={bm.yes === bestYes} ev={isPinnacle ? undefined : calcEV(pinnacle?.yes, bm.yes)} />
+                    <OddCell value={bm.no} isBest={bm.no === bestNo} ev={isPinnacle ? undefined : calcEV(pinnacle?.no, bm.no)} />
+                  </>}
+                  <td className="px-3 py-3 text-right">
+                    <a href={bm.url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm">
+                      Apostar →
+                    </a>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -328,6 +338,7 @@ function AltTotalsView({ game, descFilter, label }: { game: Game; descFilter: st
   const bookmakers = processAltTotals(game, descFilter)
   if (bookmakers.length === 0) return <EmptyMarket game={game} label={label} />
 
+  const pinnacle = bookmakers.find((b) => b.key === 'pinnacle')
   const point = bookmakers[0]?.point ?? 9.5
   const bestOver = best(bookmakers.map((b) => b.over))
   const bestUnder = best(bookmakers.map((b) => b.under))
@@ -359,19 +370,22 @@ function AltTotalsView({ game, descFilter, label }: { game: Game; descFilter: st
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {bookmakers.map((bm, idx) => (
-              <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                <td className="px-4 py-3"><span className="font-medium text-gray-800">{bm.title}</span></td>
-                <OddCell value={bm.over} isBest={bm.over === bestOver} />
-                <OddCell value={bm.under} isBest={bm.under === bestUnder} />
-                <td className="px-3 py-3 text-right">
-                  <a href={bm.url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm">
-                    Apostar →
-                  </a>
-                </td>
-              </tr>
-            ))}
+            {bookmakers.map((bm, idx) => {
+              const isPinnacle = bm.key === 'pinnacle'
+              return (
+                <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                  <td className="px-4 py-3"><span className="font-medium text-gray-800">{bm.title}</span></td>
+                  <OddCell value={bm.over} isBest={bm.over === bestOver} ev={isPinnacle ? undefined : calcEV(pinnacle?.over, bm.over)} />
+                  <OddCell value={bm.under} isBest={bm.under === bestUnder} ev={isPinnacle ? undefined : calcEV(pinnacle?.under, bm.under)} />
+                  <td className="px-3 py-3 text-right">
+                    <a href={bm.url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm">
+                      Apostar →
+                    </a>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

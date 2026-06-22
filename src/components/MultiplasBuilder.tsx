@@ -3,9 +3,10 @@
 import { useState, useMemo } from 'react'
 import { Game } from '@/lib/types'
 import { getBookmakerUrl, ALLOWED_BOOKMAKERS } from '@/lib/bookmakers'
-import { formatTime, formatDateLabel, formatDateHeader } from '@/lib/utils'
+import { formatTime, formatDateLabel, formatDateHeader, calcEV } from '@/lib/utils'
 import { COMP_INFO } from '@/lib/competitions'
 import BetSlip, { BetSlipItem } from './BetSlip'
+import { EVBadge } from './EVBadge'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -416,6 +417,8 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
       .filter((item): item is BetSlipItem => item !== null)
   }, [allSels, processedGames, ranking])
 
+  const pinnacleRanked = useMemo(() => ranking.find((r) => r.key === 'pinnacle') ?? null, [ranking])
+
   function clearAll() {
     setSelections({})
   }
@@ -505,41 +508,49 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
             </div>
 
             <div className="divide-y divide-gray-50">
-              {ranking.map((bm, idx) => (
-                <div
-                  key={bm.key}
-                  className={`px-4 py-3.5 grid grid-cols-[2rem_1fr_auto_auto] gap-4 items-center transition-colors ${
-                    idx === 0 ? 'bg-green-50' : 'hover:bg-gray-50/60'
-                  }`}
-                >
-                  <div className="text-center text-lg leading-none">
-                    {idx < 3 ? (
-                      MEDALS[idx]
-                    ) : (
-                      <span className="text-gray-400 text-sm font-semibold">{idx + 1}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-semibold text-gray-800 truncate">{bm.title}</span>
-                    {idx === 0 && (
-                      <span className="text-xs bg-green-200 text-green-800 font-semibold px-1.5 py-0.5 rounded shrink-0">
-                        Melhor
-                      </span>
-                    )}
-                  </div>
-                  <span className={`font-bold text-xl tabular-nums ${idx === 0 ? 'text-green-700' : 'text-gray-700'}`}>
-                    {bm.totalOdd.toFixed(2)}
-                  </span>
-                  <a
-                    href={bm.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shadow-sm whitespace-nowrap"
+              {ranking.map((bm, idx) => {
+                const ev = (bm.key === 'pinnacle' || !pinnacleRanked)
+                  ? null
+                  : calcEV(pinnacleRanked.totalOdd, bm.totalOdd)
+                return (
+                  <div
+                    key={bm.key}
+                    className={`px-4 py-3.5 grid grid-cols-[2rem_1fr_auto_auto] gap-4 items-center transition-colors ${
+                      idx === 0 ? 'bg-green-50' : 'hover:bg-gray-50/60'
+                    }`}
                   >
-                    Apostar →
-                  </a>
-                </div>
-              ))}
+                    <div className="text-center text-lg leading-none">
+                      {idx < 3 ? (
+                        MEDALS[idx]
+                      ) : (
+                        <span className="text-gray-400 text-sm font-semibold">{idx + 1}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-semibold text-gray-800 truncate">{bm.title}</span>
+                      {idx === 0 && (
+                        <span className="text-xs bg-green-200 text-green-800 font-semibold px-1.5 py-0.5 rounded shrink-0">
+                          Melhor
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className={`font-bold text-xl tabular-nums ${idx === 0 ? 'text-green-700' : 'text-gray-700'}`}>
+                        {bm.totalOdd.toFixed(2)}
+                      </span>
+                      <EVBadge ev={ev} />
+                    </div>
+                    <a
+                      href={bm.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shadow-sm whitespace-nowrap"
+                    >
+                      Apostar →
+                    </a>
+                  </div>
+                )
+              })}
             </div>
 
             <div className="border-t border-green-100 bg-green-50 px-4 py-2.5 flex justify-between items-center flex-wrap gap-2">
@@ -564,6 +575,11 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
       totalOdd={ranking[0]?.totalOdd ?? null}
       bestTitle={ranking[0]?.title ?? null}
       bestUrl={ranking[0]?.url ?? null}
+      evTotal={
+        ranking[0] && pinnacleRanked && ranking[0].key !== 'pinnacle'
+          ? calcEV(pinnacleRanked.totalOdd, ranking[0].totalOdd)
+          : null
+      }
       onClear={clearAll}
     />
     </>

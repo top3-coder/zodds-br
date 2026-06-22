@@ -1,5 +1,11 @@
 const SP_TZ = 'America/Sao_Paulo'
 
+// EV = (prob_pinnacle × odd_casa) - 1
+export function calcEV(pinnacleOdd: number | null | undefined, houseOdd: number | null | undefined): number | null {
+  if (!pinnacleOdd || pinnacleOdd < 1.05 || !houseOdd || houseOdd < 1.05) return null
+  return (1 / pinnacleOdd) * houseOdd - 1
+}
+
 export function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('pt-BR', {
     hour: '2-digit',

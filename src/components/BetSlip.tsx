@@ -1,5 +1,7 @@
 'use client'
 
+import { EVBadge } from './EVBadge'
+
 export interface BetSlipItem {
   key: string
   gameLabel: string
@@ -12,10 +14,11 @@ interface Props {
   totalOdd: number | null
   bestTitle: string | null
   bestUrl: string | null
+  evTotal?: number | null
   onClear: () => void
 }
 
-export default function BetSlip({ items, totalOdd, bestTitle, bestUrl, onClear }: Props) {
+export default function BetSlip({ items, totalOdd, bestTitle, bestUrl, evTotal, onClear }: Props) {
   const visible = items.length > 0
   const canBet = visible && totalOdd !== null && bestUrl !== null
 
@@ -68,8 +71,15 @@ export default function BetSlip({ items, totalOdd, bestTitle, bestUrl, onClear }
           </div>
 
           {totalOdd !== null ? (
-            <div className="text-4xl font-extrabold text-green-700 tabular-nums mb-3 leading-none">
-              {totalOdd.toFixed(2)}
+            <div className="mb-3">
+              <div className="text-4xl font-extrabold text-green-700 tabular-nums leading-none">
+                {totalOdd.toFixed(2)}
+              </div>
+              {evTotal != null && (
+                <div className="mt-1">
+                  <EVBadge ev={evTotal} />
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-sm text-gray-400 mb-3 py-1">
@@ -109,12 +119,15 @@ export default function BetSlip({ items, totalOdd, bestTitle, bestUrl, onClear }
               {items.length} seleção{items.length !== 1 ? 'ões' : ''}
             </p>
             {totalOdd !== null ? (
-              <p className="text-xl font-extrabold text-green-700 tabular-nums leading-tight">
-                {totalOdd.toFixed(2)}
-                {bestTitle && (
-                  <span className="text-xs font-normal text-gray-400 ml-1.5">{bestTitle}</span>
-                )}
-              </p>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <p className="text-xl font-extrabold text-green-700 tabular-nums leading-tight">
+                  {totalOdd.toFixed(2)}
+                  {bestTitle && (
+                    <span className="text-xs font-normal text-gray-400 ml-1.5">{bestTitle}</span>
+                  )}
+                </p>
+                {evTotal != null && <EVBadge ev={evTotal} />}
+              </div>
             ) : (
               <p className="text-sm text-gray-400 leading-tight">Sem cobertura completa</p>
             )}
