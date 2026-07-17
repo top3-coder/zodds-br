@@ -10,7 +10,13 @@ import type { Game } from '@/lib/types'
 
 function computeTopEV(games: Game[]): EVOpp[] {
   const PINNACLE = 'pinnacle'
-  const opps: EVOpp[] = []
+  // One entry per game — keeps only the highest-EV opportunity per game
+  const best = new Map<string, EVOpp>()
+
+  function tryAdd(gameId: string, opp: EVOpp) {
+    const existing = best.get(gameId)
+    if (!existing || opp.ev > existing.ev) best.set(gameId, opp)
+  }
 
   for (const game of games) {
     const pinnacle = game.bookmakers.find((b) => b.key === PINNACLE)
@@ -18,6 +24,7 @@ function computeTopEV(games: Game[]): EVOpp[] {
 
     const pinH2H = pinnacle.markets.find((m) => m.key === 'h2h')
     const pinTotals = pinnacle.markets.find((m) => m.key === 'totals')
+    const gameLabel = `${game.home_team.split(' ')[0]} × ${game.away_team.split(' ')[0]}`
 
     for (const bm of game.bookmakers) {
       if (!ALLOWED_BOOKMAKERS.has(bm.key) || bm.key === PINNACLE) continue
@@ -36,14 +43,7 @@ function computeTopEV(games: Game[]): EVOpp[] {
             const bmOdd = bmH2H.outcomes.find((o) => o.name === name)?.price
             const ev = calcEV(pinOdd, bmOdd)
             if (ev !== null && ev > 0.005 && bmOdd) {
-              opps.push({
-                gameLabel: `${game.home_team.split(' ')[0]} × ${game.away_team.split(' ')[0]}`,
-                outcomeLabel: label,
-                odd: bmOdd,
-                ev,
-                bookmakerTitle: bm.title,
-                bookmakerUrl: getBookmakerUrl(bm.key),
-              })
+              tryAdd(game.id, { gameLabel, outcomeLabel: label, odd: bmOdd, ev, bookmakerTitle: bm.title, bookmakerUrl: getBookmakerUrl(bm.key) })
             }
           }
         }
@@ -59,14 +59,7 @@ function computeTopEV(games: Game[]): EVOpp[] {
             const bmOdd = bmTotals.outcomes.find((o) => o.name === side)?.price
             const ev = calcEV(pinOdd, bmOdd)
             if (ev !== null && ev > 0.005 && bmOdd) {
-              opps.push({
-                gameLabel: `${game.home_team.split(' ')[0]} × ${game.away_team.split(' ')[0]}`,
-                outcomeLabel: side === 'Over' ? `+${point} Gols` : `-${point} Gols`,
-                odd: bmOdd,
-                ev,
-                bookmakerTitle: bm.title,
-                bookmakerUrl: getBookmakerUrl(bm.key),
-              })
+              tryAdd(game.id, { gameLabel, outcomeLabel: side === 'Over' ? `+${point} Gols` : `-${point} Gols`, odd: bmOdd, ev, bookmakerTitle: bm.title, bookmakerUrl: getBookmakerUrl(bm.key) })
             }
           }
         }
@@ -74,7 +67,7 @@ function computeTopEV(games: Game[]): EVOpp[] {
     }
   }
 
-  return opps.sort((a, b) => b.ev - a.ev).slice(0, 3)
+  return Array.from(best.values()).sort((a, b) => b.ev - a.ev).slice(0, 3)
 }
 
 export default async function Home({
