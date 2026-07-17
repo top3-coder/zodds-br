@@ -14,6 +14,8 @@ interface BmH2H     { home: number | null; draw: number | null; away: number | n
 interface BmTotals  { point: number; over: number | null; under: number | null }
 interface BmBtts    { yes: number | null; no: number | null }
 interface BmAltTot  { point: number; over: number | null; under: number | null }
+interface BmDNB     { home: number | null; away: number | null }
+interface BmSpreads { homePoint: number; homeOdd: number | null; awayPoint: number; awayOdd: number | null }
 
 interface ProcessedBm {
   key: string
@@ -23,6 +25,10 @@ interface ProcessedBm {
   btts?: BmBtts
   corners?: BmAltTot
   cards?: BmAltTot
+  dnb?: BmDNB
+  ht_h2h?: BmH2H
+  ht_totals?: BmTotals
+  handicap?: BmSpreads
 }
 
 interface ProcessedGame {
@@ -87,11 +93,16 @@ function buildProcessedGames(games: Game[]): Map<string, ProcessedGame> {
             }
           : undefined
 
+        const HT_IND = ['1st', 'half', 'ht', 'first']
         const cornersMkt = bm.markets.find(
-          (m) => m.key === 'alternate_totals' && m.description?.toLowerCase().includes('corner')
+          (m) => m.key === 'alternate_totals' &&
+            m.description?.toLowerCase().includes('corner') &&
+            !HT_IND.some((ind) => m.description?.toLowerCase().includes(ind))
         )
         const cardsMkt = bm.markets.find(
-          (m) => m.key === 'alternate_totals' && m.description?.toLowerCase().includes('card')
+          (m) => m.key === 'alternate_totals' &&
+            m.description?.toLowerCase().includes('card') &&
+            !HT_IND.some((ind) => m.description?.toLowerCase().includes(ind))
         )
         const corners: BmAltTot | undefined = cornersMkt
           ? {
@@ -108,7 +119,45 @@ function buildProcessedGames(games: Game[]): Map<string, ProcessedGame> {
             }
           : undefined
 
-        return { key: bm.key, title: bm.title, h2h, totals, btts, corners, cards }
+        const dnbMkt = bm.markets.find((m) => m.key === 'draw_no_bet')
+        const dnb: BmDNB | undefined = dnbMkt
+          ? {
+              home: dnbMkt.outcomes.find((o) => o.name === game.home_team)?.price ?? null,
+              away: dnbMkt.outcomes.find((o) => o.name === game.away_team)?.price ?? null,
+            }
+          : undefined
+
+        const htH2HMkt = bm.markets.find((m) => m.key === 'h2h_h1')
+        const ht_h2h: BmH2H | undefined = htH2HMkt
+          ? {
+              home: htH2HMkt.outcomes.find((o) => o.name === game.home_team)?.price ?? null,
+              draw: htH2HMkt.outcomes.find((o) => o.name === 'Draw')?.price ?? null,
+              away: htH2HMkt.outcomes.find((o) => o.name === game.away_team)?.price ?? null,
+            }
+          : undefined
+
+        const htTotalsMkt = bm.markets.find((m) => m.key === 'first_half_totals')
+        const ht_totals: BmTotals | undefined = htTotalsMkt
+          ? {
+              point: htTotalsMkt.outcomes[0]?.point ?? 0.5,
+              over: htTotalsMkt.outcomes.find((o) => o.name === 'Over')?.price ?? null,
+              under: htTotalsMkt.outcomes.find((o) => o.name === 'Under')?.price ?? null,
+            }
+          : undefined
+
+        const spreadsMkt = bm.markets.find((m) => m.key === 'spreads')
+        const homeSpO = spreadsMkt?.outcomes.find((o) => o.name === game.home_team || o.name === 'Home')
+        const awaySpO = spreadsMkt?.outcomes.find((o) => o.name === game.away_team || o.name === 'Away')
+        const handicap: BmSpreads | undefined = spreadsMkt && (homeSpO || awaySpO)
+          ? {
+              homePoint: homeSpO?.point ?? 0,
+              homeOdd: homeSpO?.price ?? null,
+              awayPoint: awaySpO?.point ?? 0,
+              awayOdd: awaySpO?.price ?? null,
+            }
+          : undefined
+
+        return { key: bm.key, title: bm.title, h2h, totals, btts, corners, cards, dnb, ht_h2h, ht_totals, handicap }
       })
       .filter((bm) => {
         const validH2H = bm.h2h && Object.values(bm.h2h).some((v) => v !== null && v >= 1.05 && v <= 100)
@@ -116,7 +165,11 @@ function buildProcessedGames(games: Game[]): Map<string, ProcessedGame> {
         const validBtts = bm.btts && [bm.btts.yes, bm.btts.no].some((v) => v !== null && v >= 1.05 && v <= 100)
         const validCorners = bm.corners && [bm.corners.over, bm.corners.under].some((v) => v !== null && v >= 1.05 && v <= 100)
         const validCards = bm.cards && [bm.cards.over, bm.cards.under].some((v) => v !== null && v >= 1.05 && v <= 100)
-        return validH2H || validTotals || validBtts || validCorners || validCards
+        const validDNB = bm.dnb && [bm.dnb.home, bm.dnb.away].some((v) => v !== null && v >= 1.05 && v <= 100)
+        const validHTH2H = bm.ht_h2h && Object.values(bm.ht_h2h).some((v) => v !== null && v >= 1.05 && v <= 100)
+        const validHTTotals = bm.ht_totals && [bm.ht_totals.over, bm.ht_totals.under].some((v) => v !== null && v >= 1.05 && v <= 100)
+        const validHandicap = bm.handicap && [bm.handicap.homeOdd, bm.handicap.awayOdd].some((v) => v !== null && v >= 1.05 && v <= 100)
+        return validH2H || validTotals || validBtts || validCorners || validCards || validDNB || validHTH2H || validHTTotals || validHandicap
       })
 
     if (bookmakers.length > 0) {
@@ -172,6 +225,23 @@ function getOddFromBm(bm: ProcessedBm, market: string, outcome: string): number 
     if (outcome === 'Over') return bm.cards.over
     if (outcome === 'Under') return bm.cards.under
   }
+  if (market === 'dnb' && bm.dnb) {
+    if (outcome === 'home') return bm.dnb.home
+    if (outcome === 'away') return bm.dnb.away
+  }
+  if (market === 'ht_h2h' && bm.ht_h2h) {
+    if (outcome === 'home') return bm.ht_h2h.home
+    if (outcome === 'draw') return bm.ht_h2h.draw
+    if (outcome === 'away') return bm.ht_h2h.away
+  }
+  if (market === 'ht_totals' && bm.ht_totals) {
+    if (outcome === 'Over') return bm.ht_totals.over
+    if (outcome === 'Under') return bm.ht_totals.under
+  }
+  if (market === 'handicap' && bm.handicap) {
+    if (outcome === 'home') return bm.handicap.homeOdd
+    if (outcome === 'away') return bm.handicap.awayOdd
+  }
   return null
 }
 
@@ -197,9 +267,16 @@ function MultiplasCard({
   const hasBtts = game.bookmakers.some((bm) => bm.btts)
   const hasCorners = game.bookmakers.some((bm) => bm.corners)
   const hasCards = game.bookmakers.some((bm) => bm.cards)
+  const hasDNB = game.bookmakers.some((bm) => bm.dnb)
+  const hasHTH2H = game.bookmakers.some((bm) => bm.ht_h2h)
+  const hasHTTotals = game.bookmakers.some((bm) => bm.ht_totals)
+  const hasHandicap = game.bookmakers.some((bm) => bm.handicap)
   const totalsPoint = game.bookmakers.find((bm) => bm.totals)?.totals?.point ?? 2.5
   const cornersPoint = game.bookmakers.find((bm) => bm.corners)?.corners?.point ?? 9.5
   const cardsPoint = game.bookmakers.find((bm) => bm.cards)?.cards?.point ?? 4.5
+  const htTotalsPoint = game.bookmakers.find((bm) => bm.ht_totals)?.ht_totals?.point ?? 0.5
+  const handicapBm = game.bookmakers.find((bm) => bm.handicap)?.handicap
+  const sign = (n: number) => n >= 0 ? `+${n}` : `${n}`
 
   const anySelected = Object.keys(gameSels).length > 0
 
@@ -287,6 +364,50 @@ function MultiplasCard({
             <div className="flex gap-1 flex-wrap">
               <button onClick={() => onToggle(game.id, 'cards', 'Over')} className={`${btnBase} ${isActive('cards', 'Over') ? btnActive : btnIdle}`}>+{cardsPoint}</button>
               <button onClick={() => onToggle(game.id, 'cards', 'Under')} className={`${btnBase} ${isActive('cards', 'Under') ? btnActive : btnIdle}`}>-{cardsPoint}</button>
+            </div>
+          </div>
+        )}
+
+        {hasDNB && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400 w-16 shrink-0">DNB</span>
+            <div className="flex gap-1 flex-wrap">
+              <button onClick={() => onToggle(game.id, 'dnb', 'home')} className={`${btnBase} ${isActive('dnb', 'home') ? btnActive : btnIdle}`}>{short(game.home_team)}</button>
+              <button onClick={() => onToggle(game.id, 'dnb', 'away')} className={`${btnBase} ${isActive('dnb', 'away') ? btnActive : btnIdle}`}>{short(game.away_team)}</button>
+            </div>
+          </div>
+        )}
+
+        {hasHTH2H && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400 w-16 shrink-0">1T Res.</span>
+            <div className="flex gap-1 flex-wrap">
+              {(['home', 'draw', 'away'] as const).map((outcome) => {
+                const label = outcome === 'home' ? short(game.home_team) : outcome === 'draw' ? 'Empate' : short(game.away_team)
+                return (
+                  <button key={outcome} onClick={() => onToggle(game.id, 'ht_h2h', outcome)} className={`${btnBase} ${isActive('ht_h2h', outcome) ? btnActive : btnIdle}`}>{label}</button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {hasHTTotals && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400 w-16 shrink-0">1T Gols</span>
+            <div className="flex gap-1 flex-wrap">
+              <button onClick={() => onToggle(game.id, 'ht_totals', 'Over')} className={`${btnBase} ${isActive('ht_totals', 'Over') ? btnActive : btnIdle}`}>+{htTotalsPoint}</button>
+              <button onClick={() => onToggle(game.id, 'ht_totals', 'Under')} className={`${btnBase} ${isActive('ht_totals', 'Under') ? btnActive : btnIdle}`}>-{htTotalsPoint}</button>
+            </div>
+          </div>
+        )}
+
+        {hasHandicap && handicapBm && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400 w-16 shrink-0">Handicap</span>
+            <div className="flex gap-1 flex-wrap">
+              <button onClick={() => onToggle(game.id, 'handicap', 'home')} className={`${btnBase} ${isActive('handicap', 'home') ? btnActive : btnIdle}`}>{short(game.home_team)} {sign(handicapBm.homePoint)}</button>
+              <button onClick={() => onToggle(game.id, 'handicap', 'away')} className={`${btnBase} ${isActive('handicap', 'away') ? btnActive : btnIdle}`}>{short(game.away_team)} {sign(handicapBm.awayPoint)}</button>
             </div>
           </div>
         )}
@@ -405,6 +526,19 @@ export default function MultiplasBuilder({ games }: { games: Game[] }) {
         } else if (market === 'cards') {
           const p = game.bookmakers.find((bm) => bm.cards)?.cards?.point ?? 4.5
           selectionLabel = outcome === 'Over' ? `+${p} Cartões` : `-${p} Cartões`
+        } else if (market === 'dnb') {
+          selectionLabel = outcome === 'home' ? `${short(game.home_team)} (DNB)` : `${short(game.away_team)} (DNB)`
+        } else if (market === 'ht_h2h') {
+          selectionLabel = outcome === 'home' ? `1T ${short(game.home_team)}` : outcome === 'draw' ? '1T Empate' : `1T ${short(game.away_team)}`
+        } else if (market === 'ht_totals') {
+          const p = game.bookmakers.find((bm) => bm.ht_totals)?.ht_totals?.point ?? 0.5
+          selectionLabel = outcome === 'Over' ? `1T +${p} Gols` : `1T -${p} Gols`
+        } else if (market === 'handicap') {
+          const hBm = game.bookmakers.find((bm) => bm.handicap)?.handicap
+          const signFn = (n: number) => n >= 0 ? `+${n}` : `${n}`
+          selectionLabel = outcome === 'home'
+            ? `${short(game.home_team)} HC ${signFn(hBm?.homePoint ?? 0)}`
+            : `${short(game.away_team)} HC ${signFn(hBm?.awayPoint ?? 0)}`
         }
 
         return {
