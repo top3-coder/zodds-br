@@ -11,41 +11,61 @@ export default function TopEVHighlights({ opportunities }: { opportunities: EVOp
   if (opportunities.length === 0) return null
 
   return (
-    <section className="mb-8">
-      <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-lg font-bold text-gray-800">🔥 Destaques do Dia</h2>
-        <span className="text-xs text-gray-400 font-medium">Melhores oportunidades agora</span>
+    <section className="mb-10">
+      <div className="flex items-center gap-3 mb-5">
+        <h2 className="text-xl font-extrabold text-gray-900" style={{ letterSpacing: '-0.02em' }}>
+          Destaques do Dia
+        </h2>
+        <span
+          className="text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest"
+          style={{ background: '#f0faf4', color: '#1a7a3c' }}
+        >
+          Maior EV agora
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {opportunities.map((opp, idx) => (
           <div
             key={idx}
-            className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+            className="rounded-2xl overflow-hidden transition-all duration-200 hover:-translate-y-1"
+            style={{ boxShadow: '0 4px 20px 0 rgba(15,92,46,0.13)' }}
           >
-            <div className="bg-gradient-to-r from-green-800 to-green-600 px-4 py-2.5">
-              <p className="text-green-100 text-xs font-medium truncate">{opp.gameLabel}</p>
+            {/* Gradient header */}
+            <div
+              className="px-5 py-3"
+              style={{ background: 'linear-gradient(135deg, #0f5c2e 0%, #1a7a3c 60%, #22963f 100%)' }}
+            >
+              <p className="text-green-200 text-xs font-medium truncate">{opp.gameLabel}</p>
             </div>
 
-            <div className="px-4 pt-3 pb-4">
-              <p className="text-sm font-bold text-gray-800 mb-2">{opp.outcomeLabel}</p>
+            {/* Body */}
+            <div className="bg-white px-5 pt-4 pb-5">
+              <p className="text-sm font-bold text-gray-800 mb-3 leading-tight">{opp.outcomeLabel}</p>
 
-              <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-3xl font-extrabold text-gray-900 tabular-nums">
+              <div className="flex items-end gap-3 mb-1">
+                <span
+                  className="text-4xl font-extrabold tabular-nums leading-none"
+                  style={{ color: '#0f5c2e', letterSpacing: '-0.03em' }}
+                >
                   {opp.odd.toFixed(2)}
                 </span>
-                <span className="text-base font-extrabold text-green-600 tabular-nums">
-                  🔥 +{(opp.ev * 100).toFixed(1)}%
+                <span
+                  className="text-sm font-extrabold tabular-nums pb-0.5 leading-none"
+                  style={{ color: '#1a7a3c' }}
+                >
+                  +{(opp.ev * 100).toFixed(1)}% EV
                 </span>
               </div>
 
-              <p className="text-xs text-gray-400 mb-3">via {opp.bookmakerTitle}</p>
+              <p className="text-xs text-gray-400 mb-4 font-medium">via {opp.bookmakerTitle}</p>
 
               <a
                 href={opp.bookmakerUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold text-sm py-3 rounded-xl transition-colors shadow-sm"
+                className="flex items-center justify-center w-full text-white font-bold text-sm py-3 rounded-xl transition-all hover:shadow-md active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #0f5c2e 0%, #1a7a3c 100%)' }}
               >
                 Apostar agora →
               </a>

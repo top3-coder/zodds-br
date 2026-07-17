@@ -24,8 +24,8 @@ export default function NavTabs() {
             href={`${tab.href}${qs}`}
             className={`px-7 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
               active
-                ? 'border-green-600 text-green-700'
-                : 'border-transparent text-gray-500 hover:text-green-600 hover:border-green-300'
+                ? 'border-[#1a7a3c] text-[#1a7a3c]'
+                : 'border-transparent text-gray-400 hover:text-[#1a7a3c] hover:border-green-200'
             }`}
           >
             {tab.label}

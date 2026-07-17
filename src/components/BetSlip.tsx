@@ -31,7 +31,7 @@ export default function BetSlip({ items, totalOdd, bestTitle, bestUrl, evTotal, 
         }`}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-800 to-green-600 px-4 py-3 flex items-center justify-between shrink-0">
+        <div className="px-4 py-3 flex items-center justify-between shrink-0" style={{ background: 'linear-gradient(135deg, #0f5c2e 0%, #1a7a3c 100%)' }}>
           <div className="flex items-center gap-2">
             <span className="text-white font-bold text-sm">Minha Aposta</span>
             <span className="bg-white/25 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">

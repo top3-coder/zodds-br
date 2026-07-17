@@ -7,8 +7,18 @@ html {
 }
 
 body {
-  background-color: #f1f5f9;
+  background-color: #f0faf4;
   color: #0f172a;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
+}
+
+/* Scrollbar slim nos seletores horizontais */
+.overflow-x-auto::-webkit-scrollbar {
+  height: 3px;
+}
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: #1a7a3c33;
+  border-radius: 99px;
 }

@@ -29,17 +29,18 @@ export default function GamesView({
   return (
     <div>
       {/* Market tabs + stake calculator in same row */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-6">
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 flex-1">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-8">
+        <div className="flex gap-1 bg-white border border-gray-100 rounded-2xl p-1 flex-1 shadow-sm">
           {ALL_TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setMarket(tab.key)}
-              className={`flex-1 px-2 sm:px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
+              className={`flex-1 px-2 sm:px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all ${
                 market === tab.key
-                  ? 'bg-white text-green-700 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600'
               }`}
+              style={market === tab.key ? { background: 'linear-gradient(135deg, #0f5c2e 0%, #1a7a3c 100%)' } : {}}
             >
               {tab.label}
             </button>
@@ -47,9 +48,9 @@ export default function GamesView({
         </div>
 
         {/* Stake input */}
-        <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-1.5 shadow-sm shrink-0">
+        <div className="flex items-center gap-1.5 bg-white border border-gray-100 rounded-2xl px-4 py-2 shadow-sm shrink-0">
           <span className="text-gray-400 text-xs font-medium whitespace-nowrap">💰 Valor:</span>
-          <span className="text-gray-500 text-xs font-semibold">R$</span>
+          <span className="text-xs font-bold" style={{ color: '#1a7a3c' }}>R$</span>
           <input
             type="number"
             min="0"
@@ -71,19 +72,25 @@ export default function GamesView({
         </div>
       </div>
 
-      <div className="space-y-10">
+      <div className="space-y-12">
         {dateKeys.map((dateKey) => (
           <section key={dateKey}>
-            <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-xl font-bold text-gray-800 capitalize">
+            <div className="flex items-center gap-3 mb-5">
+              <h2
+                className="text-xl font-extrabold text-gray-900 capitalize"
+                style={{ letterSpacing: '-0.02em' }}
+              >
                 {dateLabels[dateKey]}
               </h2>
-              <span className="bg-green-100 text-green-700 text-sm font-semibold px-2.5 py-0.5 rounded-full">
+              <span
+                className="text-xs font-bold px-2.5 py-1 rounded-full"
+                style={{ background: '#f0faf4', color: '#1a7a3c' }}
+              >
                 {grouped[dateKey].length}{' '}
                 {grouped[dateKey].length === 1 ? 'jogo' : 'jogos'}
               </span>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-5">
               {grouped[dateKey].map((game) => (
                 <GameCard key={game.id} game={game} market={market} stake={stake} />
               ))}

@@ -94,7 +94,7 @@ export default async function Home({
     <>
       <Header />
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-5xl mx-auto px-4 py-10 sm:py-12">
         {dateKeys.length === 0 ? (
           <div className="text-center py-28">
             <div className="text-6xl mb-5">{compInfo?.emoji ?? '⚽'}</div>

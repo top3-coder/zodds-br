@@ -10,8 +10,41 @@ import type { MarketTab } from './GamesView'
 
 const StakeCtx = createContext<number>(0)
 
+// ─── Team Avatar ──────────────────────────────────────────────────────────────
+
+const AVATAR_PALETTE = [
+  '#e53e3e', '#3182ce', '#805ad5', '#dd6b20',
+  '#2c7a7b', '#d53f8c', '#4c51bf', '#b7791f',
+  '#0987a0', '#c53030', '#6b46c1', '#276749',
+]
+
+function getInitials(name: string): string {
+  const words = name.split(' ').filter((w) => w.length > 2)
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
+}
+
+function hashColor(name: string): string {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0
+  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length]
+}
+
+function TeamAvatar({ name }: { name: string }) {
+  return (
+    <div
+      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm"
+      style={{ background: hashColor(name) }}
+    >
+      <span className="text-white text-xs font-extrabold tracking-wide">{getInitials(name)}</span>
+    </div>
+  )
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function formatBRL(value: number): string {
-  return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 // ─── H2H ─────────────────────────────────────────────────────────────────────
@@ -42,7 +75,7 @@ function processH2H(game: Game): H2HBm[] {
     .sort((a, b) => a.title.localeCompare(b.title))
 }
 
-// ─── GOALS (totals + btts) ────────────────────────────────────────────────────
+// ─── GOALS ───────────────────────────────────────────────────────────────────
 
 interface GoalsBm {
   key: string; title: string; url: string
@@ -70,7 +103,7 @@ function processGoals(game: Game): GoalsBm[] {
     .sort((a, b) => a.title.localeCompare(b.title))
 }
 
-// ─── ALTERNATE TOTALS (corners / cards) ───────────────────────────────────────
+// ─── ALT TOTALS ───────────────────────────────────────────────────────────────
 
 interface AltTotalsBm {
   key: string; title: string; url: string
@@ -96,7 +129,7 @@ function processAltTotals(game: Game, descFilter: string): AltTotalsBm[] {
     .sort((a, b) => a.title.localeCompare(b.title))
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function best(values: (number | null)[]): number | null {
   const valid = values.filter((v): v is number => v !== null)
@@ -108,25 +141,28 @@ function shortName(name: string): string {
   return name.split(' ')[0]
 }
 
+// ─── OddCell ─────────────────────────────────────────────────────────────────
+
 function OddCell({ value, isBest, ev }: { value: number | null; isBest: boolean; ev?: number | null }) {
   const stake = useContext(StakeCtx)
-  if (value === null) return <td className="px-1 sm:px-2 py-2 text-center text-gray-300 text-sm">—</td>
+  if (value === null) {
+    return <td className="px-2 sm:px-3 py-3.5 text-center text-gray-200 text-sm select-none">—</td>
+  }
   return (
-    <td className={`px-1 sm:px-2 py-2 text-center ${isBest ? 'bg-green-50' : ''}`}>
-      <div className="flex flex-col items-center gap-0.5">
+    <td className={`px-2 sm:px-3 py-3.5 text-center ${isBest ? 'bg-[#f0faf4]' : ''}`}>
+      <div className="flex flex-col items-center gap-1">
         <span
-          className={`inline-flex items-center justify-center gap-0.5 font-bold text-sm rounded-lg px-2 sm:px-3 py-1.5 min-w-[44px] sm:min-w-[52px] ${
+          className={`inline-flex items-center justify-center font-bold text-base rounded-xl px-3 py-1.5 min-w-[54px] tabular-nums ${
             isBest
-              ? 'text-green-700 bg-green-100 ring-1 ring-green-300 shadow-sm'
-              : 'text-gray-700'
+              ? 'text-[#1a7a3c] bg-green-100 ring-1 ring-green-300 shadow-sm'
+              : 'text-gray-700 bg-gray-50'
           }`}
         >
           {value.toFixed(2)}
-          {isBest && <span className="text-green-500 font-normal">↑</span>}
         </span>
         <EVBadge ev={ev} />
         {stake > 0 && (
-          <span className="text-[10px] text-gray-400 font-medium tabular-nums whitespace-nowrap">
+          <span className="text-[9px] text-gray-400 font-medium tabular-nums whitespace-nowrap">
             {formatBRL(stake * value)}
           </span>
         )}
@@ -135,9 +171,10 @@ function OddCell({ value, isBest, ev }: { value: number | null; isBest: boolean;
   )
 }
 
-const betBtn = 'inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2.5 rounded-lg transition-colors whitespace-nowrap shadow-sm'
+const betBtn =
+  'inline-flex items-center gap-1 text-white text-xs font-bold px-3 py-2.5 rounded-xl transition-all whitespace-nowrap shadow-sm hover:shadow-md active:scale-95'
 
-// ─── Card shell ───────────────────────────────────────────────────────────────
+// ─── Card Shell ───────────────────────────────────────────────────────────────
 
 function CardShell({
   game,
@@ -148,33 +185,47 @@ function CardShell({
   children: React.ReactNode
   bestSummary?: React.ReactNode
 }) {
-  const gradient = COMP_INFO[game.sport_key]?.gradient ?? 'from-green-700 to-green-600'
+  const gradient = COMP_INFO[game.sport_key]?.gradient ?? 'from-[#0f5c2e] to-[#1a7a3c]'
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-      <div className={`px-4 py-2.5 bg-gradient-to-r ${gradient} flex items-center justify-between`}>
-        <span className="text-white text-xs font-medium">
+    <div
+      className="bg-white rounded-2xl border border-gray-100 overflow-hidden transition-shadow hover:shadow-md"
+      style={{ boxShadow: '0 1px 8px 0 rgba(15,92,46,0.07)' }}
+    >
+      <div className={`px-5 py-2.5 bg-gradient-to-r ${gradient} flex items-center justify-between`}>
+        <span className="text-white text-xs font-semibold tracking-wider uppercase opacity-90">
           {COMP_INFO[game.sport_key]?.cardLabel ?? game.sport_title}
         </span>
-        <span className="text-green-100 text-xs">
+        <span className="text-white/70 text-xs font-medium">
           {formatDateLabel(game.commence_time)} · {formatTime(game.commence_time)}
         </span>
       </div>
 
-      <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100">
-        <div className="flex items-center justify-center gap-3 sm:gap-4">
-          <div className="flex-1 text-right">
-            <p className="font-bold text-gray-900 text-base sm:text-lg leading-tight">{game.home_team}</p>
-            <p className="text-xs text-gray-400 mt-0.5">Casa</p>
+      <div className="px-5 sm:px-7 py-5 sm:py-6 border-b border-gray-50">
+        <div className="flex items-center justify-center gap-4 sm:gap-8">
+          <div className="flex flex-col items-center gap-2 flex-1">
+            <TeamAvatar name={game.home_team} />
+            <p className="font-bold text-gray-900 text-sm sm:text-base leading-snug text-center">
+              {game.home_team}
+            </p>
+            <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest">Casa</p>
           </div>
+
           <div className="flex-shrink-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-100 flex items-center justify-center">
-              <span className="text-gray-400 text-xs font-bold">VS</span>
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ background: '#f0faf4' }}
+            >
+              <span className="text-[#1a7a3c] text-xs font-extrabold">VS</span>
             </div>
           </div>
-          <div className="flex-1 text-left">
-            <p className="font-bold text-gray-900 text-base sm:text-lg leading-tight">{game.away_team}</p>
-            <p className="text-xs text-gray-400 mt-0.5">Visitante</p>
+
+          <div className="flex flex-col items-center gap-2 flex-1">
+            <TeamAvatar name={game.away_team} />
+            <p className="font-bold text-gray-900 text-sm sm:text-base leading-snug text-center">
+              {game.away_team}
+            </p>
+            <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest">Visitante</p>
           </div>
         </div>
       </div>
@@ -182,11 +233,14 @@ function CardShell({
       {children}
 
       {bestSummary && (
-        <div className="px-4 py-2.5 bg-green-50 border-t border-green-100 flex flex-wrap items-center justify-between gap-2">
-          <span className="text-green-700 text-xs font-semibold uppercase tracking-wide">
+        <div
+          className="px-5 py-2.5 border-t border-green-50 flex flex-wrap items-center justify-between gap-2"
+          style={{ background: '#f0faf4' }}
+        >
+          <span className="text-[#0f5c2e] text-[10px] font-bold uppercase tracking-widest">
             ✓ Melhores odds
           </span>
-          <div className="flex items-center gap-4 text-xs text-green-800">
+          <div className="flex items-center gap-4 text-xs text-[#1a7a3c] font-semibold">
             {bestSummary}
           </div>
         </div>
@@ -195,7 +249,27 @@ function CardShell({
   )
 }
 
-// ─── H2H view ─────────────────────────────────────────────────────────────────
+// ─── Table helpers ────────────────────────────────────────────────────────────
+
+function THead({ children }: { children: React.ReactNode }) {
+  return (
+    <thead>
+      <tr className="border-b border-gray-100 bg-gray-50/70">
+        {children}
+      </tr>
+    </thead>
+  )
+}
+
+function Th({ children, align = 'center' }: { children?: React.ReactNode; align?: 'left' | 'center' }) {
+  return (
+    <th className={`px-3 sm:px-4 py-3 text-${align} text-[10px] font-bold text-gray-400 uppercase tracking-widest`}>
+      {children}
+    </th>
+  )
+}
+
+// ─── H2H View ────────────────────────────────────────────────────────────────
 
 function H2HView({ game }: { game: Game }) {
   const bookmakers = processH2H(game)
@@ -213,43 +287,37 @@ function H2HView({ game }: { game: Game }) {
       game={game}
       bestSummary={
         <>
-          {bestHome && <span><span className="text-gray-500">{shortHome}: </span><span className="font-bold">{bestHome.toFixed(2)}</span></span>}
-          {bestDraw && <span><span className="text-gray-500">Empate: </span><span className="font-bold">{bestDraw.toFixed(2)}</span></span>}
-          {bestAway && <span><span className="text-gray-500">{shortAway}: </span><span className="font-bold">{bestAway.toFixed(2)}</span></span>}
+          {bestHome && <span><span className="text-gray-400 font-medium">{shortHome}: </span>{bestHome.toFixed(2)}</span>}
+          {bestDraw && <span><span className="text-gray-400 font-medium">X: </span>{bestDraw.toFixed(2)}</span>}
+          {bestAway && <span><span className="text-gray-400 font-medium">{shortAway}: </span>{bestAway.toFixed(2)}</span>}
         </>
       }
     >
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left px-3 sm:px-4 py-2.5 text-gray-400 font-medium text-xs uppercase tracking-wide">Casa</th>
-              <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
-                <span className="block font-semibold text-gray-700">{shortHome}</span>
-                <span className="text-gray-400 font-normal">1</span>
-              </th>
-              <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
-                <span className="block font-semibold text-gray-700">Empate</span>
-                <span className="text-gray-400 font-normal">X</span>
-              </th>
-              <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
-                <span className="block font-semibold text-gray-700">{shortAway}</span>
-                <span className="text-gray-400 font-normal">2</span>
-              </th>
-              <th className="px-2 sm:px-3 py-2.5" />
-            </tr>
-          </thead>
+        <table className="w-full">
+          <THead>
+            <Th align="left">Casa de apostas</Th>
+            <Th>{shortHome}</Th>
+            <Th>Empate</Th>
+            <Th>{shortAway}</Th>
+            <th className="px-3 sm:px-4 py-3" />
+          </THead>
           <tbody className="divide-y divide-gray-50">
             {bookmakers.map((bm, idx) => {
               const isPinnacle = bm.key === 'pinnacle'
               return (
-                <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                  <td className="px-3 sm:px-4 py-2"><span className="font-medium text-gray-800 text-sm">{bm.title}</span></td>
+                <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}>
+                  <td className="px-3 sm:px-4 py-3.5">
+                    <span className="font-semibold text-gray-700 text-sm">{bm.title}</span>
+                  </td>
                   <OddCell value={bm.home} isBest={bm.home === bestHome} ev={isPinnacle ? undefined : calcEV(pinnacle?.home, bm.home)} />
                   <OddCell value={bm.draw} isBest={bm.draw === bestDraw} ev={isPinnacle ? undefined : calcEV(pinnacle?.draw, bm.draw)} />
                   <OddCell value={bm.away} isBest={bm.away === bestAway} ev={isPinnacle ? undefined : calcEV(pinnacle?.away, bm.away)} />
-                  <td className="px-2 sm:px-3 py-2 text-right">
-                    <a href={bm.url} target="_blank" rel="noopener noreferrer" className={betBtn}>
+                  <td className="px-3 sm:px-4 py-3.5 text-right">
+                    <a href={bm.url} target="_blank" rel="noopener noreferrer"
+                      className={betBtn}
+                      style={{ background: 'linear-gradient(135deg, #0f5c2e 0%, #1a7a3c 100%)' }}
+                    >
                       Apostar →
                     </a>
                   </td>
@@ -263,7 +331,7 @@ function H2HView({ game }: { game: Game }) {
   )
 }
 
-// ─── Goals view ───────────────────────────────────────────────────────────────
+// ─── Goals View ───────────────────────────────────────────────────────────────
 
 function GoalsView({ game }: { game: Game }) {
   const bookmakers = processGoals(game)
@@ -283,45 +351,29 @@ function GoalsView({ game }: { game: Game }) {
       game={game}
       bestSummary={
         <>
-          {bestOver && <span><span className="text-gray-500">+{point}: </span><span className="font-bold">{bestOver.toFixed(2)}</span></span>}
-          {bestUnder && <span><span className="text-gray-500">-{point}: </span><span className="font-bold">{bestUnder.toFixed(2)}</span></span>}
-          {bestYes && <span><span className="text-gray-500">BTTS Sim: </span><span className="font-bold">{bestYes.toFixed(2)}</span></span>}
-          {bestNo && <span><span className="text-gray-500">BTTS Não: </span><span className="font-bold">{bestNo.toFixed(2)}</span></span>}
+          {bestOver && <span><span className="text-gray-400 font-medium">+{point}: </span>{bestOver.toFixed(2)}</span>}
+          {bestUnder && <span><span className="text-gray-400 font-medium">-{point}: </span>{bestUnder.toFixed(2)}</span>}
+          {bestYes && <span><span className="text-gray-400 font-medium">BTTS S: </span>{bestYes.toFixed(2)}</span>}
+          {bestNo && <span><span className="text-gray-400 font-medium">BTTS N: </span>{bestNo.toFixed(2)}</span>}
         </>
       }
     >
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left px-3 sm:px-4 py-2.5 text-gray-400 font-medium text-xs uppercase tracking-wide">Casa</th>
-              {hasTotals && <>
-                <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
-                  <span className="block font-semibold text-gray-700">+{point}</span>
-                  <span className="text-gray-400 font-normal">Over</span>
-                </th>
-                <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
-                  <span className="block font-semibold text-gray-700">-{point}</span>
-                  <span className="text-gray-400 font-normal">Under</span>
-                </th>
-              </>}
-              {hasBtts && <>
-                <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
-                  <span className="block font-semibold text-gray-700">BTTS S</span>
-                </th>
-                <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
-                  <span className="block font-semibold text-gray-700">BTTS N</span>
-                </th>
-              </>}
-              <th className="px-2 sm:px-3 py-2.5" />
-            </tr>
-          </thead>
+        <table className="w-full">
+          <THead>
+            <Th align="left">Casa de apostas</Th>
+            {hasTotals && <><Th>+{point}</Th><Th>-{point}</Th></>}
+            {hasBtts && <><Th>BTTS S</Th><Th>BTTS N</Th></>}
+            <th className="px-3 sm:px-4 py-3" />
+          </THead>
           <tbody className="divide-y divide-gray-50">
             {bookmakers.map((bm, idx) => {
               const isPinnacle = bm.key === 'pinnacle'
               return (
-                <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                  <td className="px-3 sm:px-4 py-2"><span className="font-medium text-gray-800 text-sm">{bm.title}</span></td>
+                <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}>
+                  <td className="px-3 sm:px-4 py-3.5">
+                    <span className="font-semibold text-gray-700 text-sm">{bm.title}</span>
+                  </td>
                   {hasTotals && <>
                     <OddCell value={bm.over} isBest={bm.over === bestOver} ev={isPinnacle ? undefined : calcEV(pinnacle?.over, bm.over)} />
                     <OddCell value={bm.under} isBest={bm.under === bestUnder} ev={isPinnacle ? undefined : calcEV(pinnacle?.under, bm.under)} />
@@ -330,8 +382,11 @@ function GoalsView({ game }: { game: Game }) {
                     <OddCell value={bm.yes} isBest={bm.yes === bestYes} ev={isPinnacle ? undefined : calcEV(pinnacle?.yes, bm.yes)} />
                     <OddCell value={bm.no} isBest={bm.no === bestNo} ev={isPinnacle ? undefined : calcEV(pinnacle?.no, bm.no)} />
                   </>}
-                  <td className="px-2 sm:px-3 py-2 text-right">
-                    <a href={bm.url} target="_blank" rel="noopener noreferrer" className={betBtn}>
+                  <td className="px-3 sm:px-4 py-3.5 text-right">
+                    <a href={bm.url} target="_blank" rel="noopener noreferrer"
+                      className={betBtn}
+                      style={{ background: 'linear-gradient(135deg, #0f5c2e 0%, #1a7a3c 100%)' }}
+                    >
                       Apostar →
                     </a>
                   </td>
@@ -345,7 +400,7 @@ function GoalsView({ game }: { game: Game }) {
   )
 }
 
-// ─── AltTotals view (corners / cards) ────────────────────────────────────────
+// ─── AltTotals View ───────────────────────────────────────────────────────────
 
 function AltTotalsView({ game, descFilter, label }: { game: Game; descFilter: string; label: string }) {
   const bookmakers = processAltTotals(game, descFilter)
@@ -361,37 +416,34 @@ function AltTotalsView({ game, descFilter, label }: { game: Game; descFilter: st
       game={game}
       bestSummary={
         <>
-          {bestOver && <span><span className="text-gray-500">+{point}: </span><span className="font-bold">{bestOver.toFixed(2)}</span></span>}
-          {bestUnder && <span><span className="text-gray-500">-{point}: </span><span className="font-bold">{bestUnder.toFixed(2)}</span></span>}
+          {bestOver && <span><span className="text-gray-400 font-medium">+{point}: </span>{bestOver.toFixed(2)}</span>}
+          {bestUnder && <span><span className="text-gray-400 font-medium">-{point}: </span>{bestUnder.toFixed(2)}</span>}
         </>
       }
     >
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left px-3 sm:px-4 py-2.5 text-gray-400 font-medium text-xs uppercase tracking-wide">Casa</th>
-              <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
-                <span className="block font-semibold text-gray-700">+{point}</span>
-                <span className="text-gray-400 font-normal">Over</span>
-              </th>
-              <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
-                <span className="block font-semibold text-gray-700">-{point}</span>
-                <span className="text-gray-400 font-normal">Under</span>
-              </th>
-              <th className="px-2 sm:px-3 py-2.5" />
-            </tr>
-          </thead>
+        <table className="w-full">
+          <THead>
+            <Th align="left">Casa de apostas</Th>
+            <Th>+{point}</Th>
+            <Th>-{point}</Th>
+            <th className="px-3 sm:px-4 py-3" />
+          </THead>
           <tbody className="divide-y divide-gray-50">
             {bookmakers.map((bm, idx) => {
               const isPinnacle = bm.key === 'pinnacle'
               return (
-                <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                  <td className="px-3 sm:px-4 py-2"><span className="font-medium text-gray-800 text-sm">{bm.title}</span></td>
+                <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}>
+                  <td className="px-3 sm:px-4 py-3.5">
+                    <span className="font-semibold text-gray-700 text-sm">{bm.title}</span>
+                  </td>
                   <OddCell value={bm.over} isBest={bm.over === bestOver} ev={isPinnacle ? undefined : calcEV(pinnacle?.over, bm.over)} />
                   <OddCell value={bm.under} isBest={bm.under === bestUnder} ev={isPinnacle ? undefined : calcEV(pinnacle?.under, bm.under)} />
-                  <td className="px-2 sm:px-3 py-2 text-right">
-                    <a href={bm.url} target="_blank" rel="noopener noreferrer" className={betBtn}>
+                  <td className="px-3 sm:px-4 py-3.5 text-right">
+                    <a href={bm.url} target="_blank" rel="noopener noreferrer"
+                      className={betBtn}
+                      style={{ background: 'linear-gradient(135deg, #0f5c2e 0%, #1a7a3c 100%)' }}
+                    >
                       Apostar →
                     </a>
                   </td>
@@ -405,21 +457,21 @@ function AltTotalsView({ game, descFilter, label }: { game: Game; descFilter: st
   )
 }
 
-// ─── Empty market placeholder ─────────────────────────────────────────────────
+// ─── Empty ────────────────────────────────────────────────────────────────────
 
 function EmptyMarket({ game, label }: { game: Game; label: string }) {
   return (
     <CardShell game={game}>
-      <div className="px-4 py-10 text-center">
+      <div className="px-5 py-12 text-center">
         <p className="text-gray-400 text-sm">
-          Sem dados de <span className="font-medium text-gray-500">{label}</span> para este jogo.
+          Sem dados de <span className="font-semibold text-gray-500">{label}</span> para este jogo.
         </p>
       </div>
     </CardShell>
   )
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function GameCard({
   game,
