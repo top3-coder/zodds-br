@@ -4,13 +4,15 @@ import { useState } from 'react'
 import GameCard from './GameCard'
 import { Game } from '@/lib/types'
 
-export type MarketTab = 'h2h' | 'goals' | 'corners' | 'cards'
+export type MarketTab = 'result' | 'goals' | 'corners' | 'cards' | 'halftime' | 'specials'
 
 const ALL_TABS: { key: MarketTab; label: string }[] = [
-  { key: 'h2h', label: 'Resultado' },
-  { key: 'goals', label: 'Gols' },
-  { key: 'corners', label: 'Escanteios' },
-  { key: 'cards', label: 'Cartões' },
+  { key: 'result',   label: 'Resultado' },
+  { key: 'goals',    label: 'Gols' },
+  { key: 'corners',  label: 'Escanteios' },
+  { key: 'cards',    label: 'Cartões' },
+  { key: 'halftime', label: 'Intervalo' },
+  { key: 'specials', label: 'Especiais' },
 ]
 
 export default function GamesView({
@@ -22,23 +24,21 @@ export default function GamesView({
   dateKeys: string[]
   dateLabels: Record<string, string>
 }) {
-  const [market, setMarket] = useState<MarketTab>('h2h')
+  const [market, setMarket] = useState<MarketTab>('result')
   const [stakeInput, setStakeInput] = useState('')
   const stake = parseFloat(stakeInput) || 0
 
   return (
     <div>
-      {/* Market tabs + stake calculator in same row */}
+      {/* Market tabs + stake calculator */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-8">
-        <div className="flex gap-1 bg-white border border-gray-100 rounded-2xl p-1 flex-1 shadow-sm">
+        <div className="flex gap-0.5 bg-white border border-gray-100 rounded-2xl p-1 flex-1 shadow-sm overflow-x-auto">
           {ALL_TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setMarket(tab.key)}
-              className={`flex-1 px-2 sm:px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all ${
-                market === tab.key
-                  ? 'text-white shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600'
+              className={`flex-1 min-w-[72px] px-2 sm:px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap ${
+                market === tab.key ? 'text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'
               }`}
               style={market === tab.key ? { background: 'linear-gradient(135deg, #0f5c2e 0%, #1a7a3c 100%)' } : {}}
             >
@@ -47,7 +47,6 @@ export default function GamesView({
           ))}
         </div>
 
-        {/* Stake input */}
         <div className="flex items-center gap-1.5 bg-white border border-gray-100 rounded-2xl px-4 py-2 shadow-sm shrink-0">
           <span className="text-gray-400 text-xs font-medium whitespace-nowrap">💰 Valor:</span>
           <span className="text-xs font-bold" style={{ color: '#1a7a3c' }}>R$</span>
