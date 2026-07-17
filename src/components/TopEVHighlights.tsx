@@ -29,7 +29,7 @@ export default function TopEVHighlights({ opportunities }: { opportunities: EVOp
           <div
             key={idx}
             className="rounded-2xl overflow-hidden transition-all duration-200 hover:-translate-y-1"
-            style={{ boxShadow: '0 4px 20px 0 rgba(15,92,46,0.13)' }}
+            style={{ boxShadow: '0 4px 16px 0 rgba(0,0,0,0.10), 0 1px 4px 0 rgba(0,0,0,0.06)' }}
           >
             {/* Gradient header */}
             <div

@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
 import { Game } from '@/lib/types'
 import { getBookmakerUrl, ALLOWED_BOOKMAKERS } from '@/lib/bookmakers'
 import { formatTime, formatDateLabel, calcEV } from '@/lib/utils'
@@ -18,6 +18,68 @@ const AVATAR_PALETTE = [
   '#0987a0', '#c53030', '#6b46c1', '#276749',
 ]
 
+// Country name → ISO flag code (flagcdn.com)
+const NATIONAL_FLAGS: Record<string, string> = {
+  'brazil': 'br', 'brasil': 'br',
+  'argentina': 'ar',
+  'colombia': 'co',
+  'chile': 'cl',
+  'uruguay': 'uy',
+  'ecuador': 'ec',
+  'peru': 'pe',
+  'venezuela': 've',
+  'bolivia': 'bo',
+  'paraguay': 'py',
+  'costa rica': 'cr',
+  'panama': 'pa',
+  'honduras': 'hn',
+  'jamaica': 'jm',
+  'mexico': 'mx',
+  'canada': 'ca',
+  'united states': 'us', 'usa': 'us',
+  'spain': 'es',
+  'france': 'fr',
+  'germany': 'de',
+  'italy': 'it',
+  'england': 'gb-eng',
+  'scotland': 'gb-sct',
+  'wales': 'gb-wls',
+  'portugal': 'pt',
+  'netherlands': 'nl',
+  'belgium': 'be',
+  'croatia': 'hr',
+  'denmark': 'dk',
+  'sweden': 'se',
+  'norway': 'no',
+  'switzerland': 'ch',
+  'austria': 'at',
+  'poland': 'pl',
+  'czech republic': 'cz',
+  'ukraine': 'ua',
+  'turkey': 'tr',
+  'greece': 'gr',
+  'serbia': 'rs',
+  'romania': 'ro',
+  'japan': 'jp',
+  'south korea': 'kr',
+  'australia': 'au',
+  'morocco': 'ma',
+  'senegal': 'sn',
+  'nigeria': 'ng',
+  'ghana': 'gh',
+  'cameroon': 'cm',
+}
+
+function getNationalFlag(name: string): string | null {
+  const lower = name.toLowerCase()
+  for (const [keyword, code] of Object.entries(NATIONAL_FLAGS)) {
+    if (lower === keyword || lower.startsWith(keyword + ' ')) {
+      return `https://flagcdn.com/w80/${code}.png`
+    }
+  }
+  return null
+}
+
 function getInitials(name: string): string {
   const words = name.split(' ').filter((w) => w.length > 2)
   if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
@@ -30,10 +92,69 @@ function hashColor(name: string): string {
   return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length]
 }
 
+// Module-level cache: string = URL, null = failed, undefined = not fetched
+const crestCache = new Map<string, string | null>()
+
 function TeamAvatar({ name }: { name: string }) {
+  const [imgUrl, setImgUrl] = useState<string | null | undefined>(
+    crestCache.has(name) ? crestCache.get(name) : undefined
+  )
+
+  useEffect(() => {
+    if (crestCache.has(name)) return
+
+    // National teams → flagcdn
+    const flag = getNationalFlag(name)
+    if (flag) {
+      crestCache.set(name, flag)
+      setImgUrl(flag)
+      return
+    }
+
+    // Club teams → SofaScore via proxy
+    fetch(`/api/crest?q=${encodeURIComponent(name)}`)
+      .then((r) => r.json())
+      .then((data: { id: number | null }) => {
+        const url = data.id
+          ? `https://api.sofascore.app/api/v1/team/${data.id}/image`
+          : null
+        crestCache.set(name, url)
+        setImgUrl(url)
+      })
+      .catch(() => {
+        crestCache.set(name, null)
+        setImgUrl(null)
+      })
+  }, [name])
+
+  // Loading skeleton
+  if (imgUrl === undefined) {
+    return (
+      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-100 shrink-0 animate-pulse" />
+    )
+  }
+
+  // Success — show crest/flag
+  if (imgUrl !== null) {
+    return (
+      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+        <img
+          src={imgUrl}
+          alt={name}
+          className="w-9 h-9 sm:w-11 sm:h-11 object-contain"
+          onError={() => {
+            crestCache.set(name, null)
+            setImgUrl(null)
+          }}
+        />
+      </div>
+    )
+  }
+
+  // Fallback — colored circle with initials
   return (
     <div
-      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm"
+      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shrink-0 shadow-sm"
       style={{ background: hashColor(name) }}
     >
       <span className="text-white text-xs font-extrabold tracking-wide">{getInitials(name)}</span>
@@ -190,7 +311,7 @@ function CardShell({
   return (
     <div
       className="bg-white rounded-2xl border border-gray-100 overflow-hidden transition-shadow hover:shadow-md"
-      style={{ boxShadow: '0 1px 8px 0 rgba(15,92,46,0.07)' }}
+      style={{ boxShadow: '0 2px 12px 0 rgba(0,0,0,0.07), 0 1px 3px 0 rgba(0,0,0,0.05)' }}
     >
       <div className={`px-5 py-2.5 bg-gradient-to-r ${gradient} flex items-center justify-between`}>
         <span className="text-white text-xs font-semibold tracking-wider uppercase opacity-90">
