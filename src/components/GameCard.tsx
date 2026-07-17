@@ -1,9 +1,18 @@
+'use client'
+
+import { createContext, useContext } from 'react'
 import { Game } from '@/lib/types'
 import { getBookmakerUrl, ALLOWED_BOOKMAKERS } from '@/lib/bookmakers'
 import { formatTime, formatDateLabel, calcEV } from '@/lib/utils'
 import { COMP_INFO } from '@/lib/competitions'
 import { EVBadge } from './EVBadge'
 import type { MarketTab } from './GamesView'
+
+const StakeCtx = createContext<number>(0)
+
+function formatBRL(value: number): string {
+  return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
 
 // ─── H2H ─────────────────────────────────────────────────────────────────────
 
@@ -100,12 +109,13 @@ function shortName(name: string): string {
 }
 
 function OddCell({ value, isBest, ev }: { value: number | null; isBest: boolean; ev?: number | null }) {
-  if (value === null) return <td className="px-2 py-3 text-center text-gray-300 text-sm">—</td>
+  const stake = useContext(StakeCtx)
+  if (value === null) return <td className="px-1 sm:px-2 py-2 text-center text-gray-300 text-sm">—</td>
   return (
-    <td className={`px-2 py-2 text-center ${isBest ? 'bg-green-50' : ''}`}>
+    <td className={`px-1 sm:px-2 py-2 text-center ${isBest ? 'bg-green-50' : ''}`}>
       <div className="flex flex-col items-center gap-0.5">
         <span
-          className={`inline-flex items-center justify-center gap-1 font-bold text-sm rounded-lg px-3 py-1.5 min-w-[52px] ${
+          className={`inline-flex items-center justify-center gap-0.5 font-bold text-sm rounded-lg px-2 sm:px-3 py-1.5 min-w-[44px] sm:min-w-[52px] ${
             isBest
               ? 'text-green-700 bg-green-100 ring-1 ring-green-300 shadow-sm'
               : 'text-gray-700'
@@ -115,10 +125,17 @@ function OddCell({ value, isBest, ev }: { value: number | null; isBest: boolean;
           {isBest && <span className="text-green-500 font-normal">↑</span>}
         </span>
         <EVBadge ev={ev} />
+        {stake > 0 && (
+          <span className="text-[10px] text-gray-400 font-medium tabular-nums whitespace-nowrap">
+            {formatBRL(stake * value)}
+          </span>
+        )}
       </div>
     </td>
   )
 }
+
+const betBtn = 'inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2.5 rounded-lg transition-colors whitespace-nowrap shadow-sm'
 
 // ─── Card shell ───────────────────────────────────────────────────────────────
 
@@ -144,19 +161,19 @@ function CardShell({
         </span>
       </div>
 
-      <div className="px-6 py-5 border-b border-gray-100">
-        <div className="flex items-center justify-center gap-4">
+      <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100">
+        <div className="flex items-center justify-center gap-3 sm:gap-4">
           <div className="flex-1 text-right">
-            <p className="font-bold text-gray-900 text-lg leading-tight">{game.home_team}</p>
+            <p className="font-bold text-gray-900 text-base sm:text-lg leading-tight">{game.home_team}</p>
             <p className="text-xs text-gray-400 mt-0.5">Casa</p>
           </div>
           <div className="flex-shrink-0">
-            <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-100 flex items-center justify-center">
               <span className="text-gray-400 text-xs font-bold">VS</span>
             </div>
           </div>
           <div className="flex-1 text-left">
-            <p className="font-bold text-gray-900 text-lg leading-tight">{game.away_team}</p>
+            <p className="font-bold text-gray-900 text-base sm:text-lg leading-tight">{game.away_team}</p>
             <p className="text-xs text-gray-400 mt-0.5">Visitante</p>
           </div>
         </div>
@@ -206,20 +223,20 @@ function H2HView({ game }: { game: Game }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left px-4 py-2.5 text-gray-400 font-medium text-xs uppercase tracking-wide">Casa de Apostas</th>
-              <th className="text-center px-2 py-2.5 text-xs">
+              <th className="text-left px-3 sm:px-4 py-2.5 text-gray-400 font-medium text-xs uppercase tracking-wide">Casa</th>
+              <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
                 <span className="block font-semibold text-gray-700">{shortHome}</span>
                 <span className="text-gray-400 font-normal">1</span>
               </th>
-              <th className="text-center px-2 py-2.5 text-xs">
+              <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
                 <span className="block font-semibold text-gray-700">Empate</span>
                 <span className="text-gray-400 font-normal">X</span>
               </th>
-              <th className="text-center px-2 py-2.5 text-xs">
+              <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
                 <span className="block font-semibold text-gray-700">{shortAway}</span>
                 <span className="text-gray-400 font-normal">2</span>
               </th>
-              <th className="px-3 py-2.5" />
+              <th className="px-2 sm:px-3 py-2.5" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -227,13 +244,12 @@ function H2HView({ game }: { game: Game }) {
               const isPinnacle = bm.key === 'pinnacle'
               return (
                 <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                  <td className="px-4 py-3"><span className="font-medium text-gray-800">{bm.title}</span></td>
+                  <td className="px-3 sm:px-4 py-2"><span className="font-medium text-gray-800 text-sm">{bm.title}</span></td>
                   <OddCell value={bm.home} isBest={bm.home === bestHome} ev={isPinnacle ? undefined : calcEV(pinnacle?.home, bm.home)} />
                   <OddCell value={bm.draw} isBest={bm.draw === bestDraw} ev={isPinnacle ? undefined : calcEV(pinnacle?.draw, bm.draw)} />
                   <OddCell value={bm.away} isBest={bm.away === bestAway} ev={isPinnacle ? undefined : calcEV(pinnacle?.away, bm.away)} />
-                  <td className="px-3 py-3 text-right">
-                    <a href={bm.url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm">
+                  <td className="px-2 sm:px-3 py-2 text-right">
+                    <a href={bm.url} target="_blank" rel="noopener noreferrer" className={betBtn}>
                       Apostar →
                     </a>
                   </td>
@@ -278,28 +294,26 @@ function GoalsView({ game }: { game: Game }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left px-4 py-2.5 text-gray-400 font-medium text-xs uppercase tracking-wide">Casa de Apostas</th>
+              <th className="text-left px-3 sm:px-4 py-2.5 text-gray-400 font-medium text-xs uppercase tracking-wide">Casa</th>
               {hasTotals && <>
-                <th className="text-center px-2 py-2.5 text-xs">
+                <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
                   <span className="block font-semibold text-gray-700">+{point}</span>
                   <span className="text-gray-400 font-normal">Over</span>
                 </th>
-                <th className="text-center px-2 py-2.5 text-xs">
+                <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
                   <span className="block font-semibold text-gray-700">-{point}</span>
                   <span className="text-gray-400 font-normal">Under</span>
                 </th>
               </>}
               {hasBtts && <>
-                <th className="text-center px-2 py-2.5 text-xs">
-                  <span className="block font-semibold text-gray-700">BTTS Sim</span>
-                  <span className="text-gray-400 font-normal">Ambas marcam</span>
+                <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
+                  <span className="block font-semibold text-gray-700">BTTS S</span>
                 </th>
-                <th className="text-center px-2 py-2.5 text-xs">
-                  <span className="block font-semibold text-gray-700">BTTS Não</span>
-                  <span className="text-gray-400 font-normal">Não ambas</span>
+                <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
+                  <span className="block font-semibold text-gray-700">BTTS N</span>
                 </th>
               </>}
-              <th className="px-3 py-2.5" />
+              <th className="px-2 sm:px-3 py-2.5" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -307,7 +321,7 @@ function GoalsView({ game }: { game: Game }) {
               const isPinnacle = bm.key === 'pinnacle'
               return (
                 <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                  <td className="px-4 py-3"><span className="font-medium text-gray-800">{bm.title}</span></td>
+                  <td className="px-3 sm:px-4 py-2"><span className="font-medium text-gray-800 text-sm">{bm.title}</span></td>
                   {hasTotals && <>
                     <OddCell value={bm.over} isBest={bm.over === bestOver} ev={isPinnacle ? undefined : calcEV(pinnacle?.over, bm.over)} />
                     <OddCell value={bm.under} isBest={bm.under === bestUnder} ev={isPinnacle ? undefined : calcEV(pinnacle?.under, bm.under)} />
@@ -316,9 +330,8 @@ function GoalsView({ game }: { game: Game }) {
                     <OddCell value={bm.yes} isBest={bm.yes === bestYes} ev={isPinnacle ? undefined : calcEV(pinnacle?.yes, bm.yes)} />
                     <OddCell value={bm.no} isBest={bm.no === bestNo} ev={isPinnacle ? undefined : calcEV(pinnacle?.no, bm.no)} />
                   </>}
-                  <td className="px-3 py-3 text-right">
-                    <a href={bm.url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm">
+                  <td className="px-2 sm:px-3 py-2 text-right">
+                    <a href={bm.url} target="_blank" rel="noopener noreferrer" className={betBtn}>
                       Apostar →
                     </a>
                   </td>
@@ -357,16 +370,16 @@ function AltTotalsView({ game, descFilter, label }: { game: Game; descFilter: st
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left px-4 py-2.5 text-gray-400 font-medium text-xs uppercase tracking-wide">Casa de Apostas</th>
-              <th className="text-center px-2 py-2.5 text-xs">
+              <th className="text-left px-3 sm:px-4 py-2.5 text-gray-400 font-medium text-xs uppercase tracking-wide">Casa</th>
+              <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
                 <span className="block font-semibold text-gray-700">+{point}</span>
                 <span className="text-gray-400 font-normal">Over</span>
               </th>
-              <th className="text-center px-2 py-2.5 text-xs">
+              <th className="text-center px-1 sm:px-2 py-2.5 text-xs">
                 <span className="block font-semibold text-gray-700">-{point}</span>
                 <span className="text-gray-400 font-normal">Under</span>
               </th>
-              <th className="px-3 py-2.5" />
+              <th className="px-2 sm:px-3 py-2.5" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -374,12 +387,11 @@ function AltTotalsView({ game, descFilter, label }: { game: Game; descFilter: st
               const isPinnacle = bm.key === 'pinnacle'
               return (
                 <tr key={bm.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                  <td className="px-4 py-3"><span className="font-medium text-gray-800">{bm.title}</span></td>
+                  <td className="px-3 sm:px-4 py-2"><span className="font-medium text-gray-800 text-sm">{bm.title}</span></td>
                   <OddCell value={bm.over} isBest={bm.over === bestOver} ev={isPinnacle ? undefined : calcEV(pinnacle?.over, bm.over)} />
                   <OddCell value={bm.under} isBest={bm.under === bestUnder} ev={isPinnacle ? undefined : calcEV(pinnacle?.under, bm.under)} />
-                  <td className="px-3 py-3 text-right">
-                    <a href={bm.url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm">
+                  <td className="px-2 sm:px-3 py-2 text-right">
+                    <a href={bm.url} target="_blank" rel="noopener noreferrer" className={betBtn}>
                       Apostar →
                     </a>
                   </td>
@@ -409,9 +421,20 @@ function EmptyMarket({ game, label }: { game: Game; label: string }) {
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export default function GameCard({ game, market = 'h2h' }: { game: Game; market?: MarketTab }) {
-  if (market === 'goals') return <GoalsView game={game} />
-  if (market === 'corners') return <AltTotalsView game={game} descFilter="corner" label="Escanteios" />
-  if (market === 'cards') return <AltTotalsView game={game} descFilter="card" label="Cartões" />
-  return <H2HView game={game} />
+export default function GameCard({
+  game,
+  market = 'h2h',
+  stake = 0,
+}: {
+  game: Game
+  market?: MarketTab
+  stake?: number
+}) {
+  let view
+  if (market === 'goals') view = <GoalsView game={game} />
+  else if (market === 'corners') view = <AltTotalsView game={game} descFilter="corner" label="Escanteios" />
+  else if (market === 'cards') view = <AltTotalsView game={game} descFilter="card" label="Cartões" />
+  else view = <H2HView game={game} />
+
+  return <StakeCtx.Provider value={stake}>{view}</StakeCtx.Provider>
 }
