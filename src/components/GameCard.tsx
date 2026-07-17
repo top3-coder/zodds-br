@@ -111,15 +111,12 @@ function TeamAvatar({ name }: { name: string }) {
       return
     }
 
-    // Club teams → SofaScore via proxy
+    // Club teams → TheSportsDB via proxy
     fetch(`/api/crest?q=${encodeURIComponent(name)}`)
       .then((r) => r.json())
-      .then((data: { id: number | null }) => {
-        const url = data.id
-          ? `https://api.sofascore.app/api/v1/team/${data.id}/image`
-          : null
-        crestCache.set(name, url)
-        setImgUrl(url)
+      .then((data: { url: string | null }) => {
+        crestCache.set(name, data.url ?? null)
+        setImgUrl(data.url ?? null)
       })
       .catch(() => {
         crestCache.set(name, null)

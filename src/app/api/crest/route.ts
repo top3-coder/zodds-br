@@ -1,36 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+interface TsdbTeam {
+  strTeam: string
+  strBadge: string | null
+}
+
 export async function GET(req: NextRequest) {
-  const q = req.nextUrl.searchParams.get('q') ?? ''
-  if (!q) return NextResponse.json({ id: null })
+  const q = (req.nextUrl.searchParams.get('q') ?? '').trim()
+  if (!q) return NextResponse.json({ url: null })
 
   try {
     const res = await fetch(
-      `https://api.sofascore.com/api/v1/team/search?q=${encodeURIComponent(q)}`,
-      {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          Accept: 'application/json',
-          Referer: 'https://www.sofascore.com/',
-        },
-        next: { revalidate: 86400 },
-      }
+      `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(q)}`,
+      { next: { revalidate: 86400 } }
     )
 
-    if (!res.ok) return NextResponse.json({ id: null })
+    if (!res.ok) return NextResponse.json({ url: null })
 
-    const data: unknown = await res.json()
-    const teams = (data as { teams?: { id: number; name: string }[] }).teams ?? []
+    const data = await res.json() as { teams: TsdbTeam[] | null }
+    const teams = data.teams ?? []
+    if (teams.length === 0) return NextResponse.json({ url: null })
 
     // Prefer exact name match, fall back to first result
-    const exact = teams.find(
-      (t) => t.name.toLowerCase() === q.toLowerCase()
-    )
-    const id = (exact ?? teams[0])?.id ?? null
+    const ql = q.toLowerCase()
+    const match =
+      teams.find((t) => t.strTeam.toLowerCase() === ql) ?? teams[0]
 
-    return NextResponse.json({ id }, { headers: { 'Cache-Control': 'public, max-age=86400' } })
+    const url = match?.strBadge ?? null
+
+    return NextResponse.json(
+      { url },
+      { headers: { 'Cache-Control': 'public, max-age=86400, s-maxage=86400' } }
+    )
   } catch {
-    return NextResponse.json({ id: null })
+    return NextResponse.json({ url: null })
   }
 }
